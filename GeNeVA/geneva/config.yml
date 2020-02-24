@@ -1,0 +1,44 @@
+#The path for the pretrained word
+glove_path: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw_iCLEVR/glove_codraw_iclevr.txt'
+
+codraw: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_train.h5'
+codraw_background: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/background.png'
+codraw_objects: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/objects.txt'
+codraw_test: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_test.h5'
+codraw_val: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_val.h5'
+
+codrawDialog: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_train.h5'
+codrawDialog_background: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/background.png'
+codrawDialog_objects: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/objects.txt'
+codrawDialog_test: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_test.h5'
+codrawDialog_val: '/home/zmykevin/CoDraw_Gaugan/data/GeNeVA_datasets/data/CoDraw/codraw_val.h5'
+
+iclevr: '../GeNeVA_datasets/data/iCLEVR/clevr_train.h5'
+iclevr_background: '../GeNeVA_datasets/data/iCLEVR/background.png'
+iclevr_objects: '../GeNeVA_datasets/data/iCLEVR/objects.txt'
+iclevr_test: '../GeNeVA_datasets/data/iCLEVR/clevr_test.h5'
+iclevr_val: '../GeNeVA_datasets/data/iCLEVR/clevr_val.h5'
+
+#The Pretrained Model for Objects Localization and Detection for CoDraw
+codraw_inception_objects: '/home/zmykevin/CoDraw_Gaugan/model/GeNeVA/Object_Detector_Localizer/codraw_inception_best_checkpoint.pth'
+
+#The Pretrained Model for Objects Localization and Detection for CoDrawDialog, Defined by Mingyang
+codrawDialog_inception_objects: '/home/zmykevin/CoDraw_Gaugan/model/GeNeVA/Object_Detector_Localizer/codraw_inception_best_checkpoint.pth'
+
+#The Pretrained Model for Objects Localtization and Detection for ICLEVR
+iclevr_inception_objects: '/home/zmykevin/CoDraw_Gaugan/model/GeNeVA/Object_Detector_Localizer/iclevr_inception_best_checkpoint.pth'
+
+
+gandraw: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_train.h5'
+gandraw_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_test.h5'
+gandraw_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_val.h5'
+glove_gandraw_path: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/glove_gandraw.txt'
+
+gandraw_clean: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_train.h5'
+gandraw_clean_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_test.h5'
+gandraw_clean_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_val.h5'
+#glove_gandraw_clean_path: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/glove_gandraw.txt'
+
+gandraw_64: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_train.h5'
+gandraw_64_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_test.h5'
+gandraw_64_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_val.h5'
