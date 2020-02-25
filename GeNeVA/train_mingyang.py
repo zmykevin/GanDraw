@@ -104,7 +104,7 @@ class Trainer():
                                            )
                     current_batch_time = time.time() - current_batch_start
                     #print("batch_time is: {}".format(current_batch_time))
-                    #return
+                    return
 
 if __name__ == '__main__':
     config_file = "example_args/gandraw_args.json"
