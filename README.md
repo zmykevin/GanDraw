@@ -1,5 +1,9 @@
 # GanDraw
 The Repository for the baselines for GanDraw Dataset
+## Visdom Port
+We Visualize the Training Progress with Visdom. The visdom port for each server is listed as following:
+1. __nlp.cs.ucdavis.edu__: 8097
+2. __interaction.cs.ucdavis.edu__: 8098
 
 ## GanDraw Baseline1 Exp Setting Instructions
 ### ImgDimension 128 vs 64
