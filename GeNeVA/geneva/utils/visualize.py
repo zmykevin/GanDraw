@@ -63,7 +63,7 @@ class VisdomPlotter():
         else:
             self.viz.images(images, env=self.env,
                             win=self.plots[var_name], nrow=nrow)
-    
+
     def draw_gandraw(self, var_name, images, nrow=8):
         """Shows a grid of images in GanDraw
         Args:
@@ -79,6 +79,23 @@ class VisdomPlotter():
         else:
             self.viz.images(images, env=self.env,
                             win=self.plots[var_name], nrow=nrow)
+
+    def draw_gandraw_visualization(self, var_name, images, nrow=8):
+        """Shows a grid of images in GanDraw
+        Args:
+            - var_name: plot title (str)
+            - images: np.array of images (np.array)
+            - nrow: number of images per row (integer)
+        """
+        #images = images[:16] * 127.5 + 127.5
+        images = images
+        if var_name not in self.plots:
+            self.plots[var_name] = self.viz.images(
+                images, env=self.env, nrow=nrow)
+        else:
+            self.viz.images(images, env=self.env,
+                            win=self.plots[var_name], nrow=nrow)
+
     def histogram(self):
         """Draws a hsitogram of D(x) and D(G(z))
         Takes no arguments, it uses the values saved using

@@ -13,7 +13,7 @@ from torch.nn import DataParallel
 from torch.nn.parallel import DistributedDataParallel  # Mingyang Zhou
 import numpy as np
 import datetime  # Added by Mingyang Zhou
-from torchvision import transforms # Added by Mingyang Zhou
+from torchvision import transforms  # Added by Mingyang Zhou
 
 from geneva.models.networks.generator_factory import GeneratorFactory
 from geneva.models.networks.discriminator_factory import DiscriminatorFactory
@@ -28,6 +28,7 @@ from geneva.models import _recurrent_gan
 
 
 class UnNormalize(object):
+
     def __init__(self, mean, std):
         self.mean = mean
         self.std = std
@@ -46,6 +47,7 @@ class UnNormalize(object):
 
 
 class RecurrentGAN_Mingyang():
+
     def __init__(self, cfg):
         """A recurrent GAN model, each time step a generated image
         (x'_{t-1}) and the current question q_{t} are fed to the RNN
@@ -146,9 +148,9 @@ class RecurrentGAN_Mingyang():
         self.cfg = cfg
         self.logger = Logger(cfg.log_path, cfg.exp_name)
 
-        #define unorm
-        self.unorm = UnNormalize(mean=(0.485, 0.456, 0.406), std=(
-                                 0.229, 0.224, 0.225))
+        # define unorm
+        self.unorm = UnNormalize(mean=(0.5, 0.5, 0.5), std=(
+                                 0.5, 0.5, 0.5))
 
     def train_batch(self, batch, epoch, iteration, visualizer, logger, total_iters=0, current_batch_t=0):
         """
@@ -164,7 +166,7 @@ class RecurrentGAN_Mingyang():
         prev_image = prev_image \
             .repeat(batch_size, 1, 1, 1)
         disc_prev_image = prev_image
-        #print("disc_prev_image size is: {}".format(disc_prev_image.shape))
+        # print("disc_prev_image size is: {}".format(disc_prev_image.shape))
 
         # Initial inputs for the RNN set to zeros
         hidden = torch.zeros(1, batch_size, self.cfg.hidden_dim)
@@ -174,6 +176,7 @@ class RecurrentGAN_Mingyang():
         drawer_images = []
         added_entities = []
 
+        #print("max sequence length of current batch: {}".format(max_seq_len))
         for t in range(max_seq_len):
             image = batch['image'][:, t]
             turns_word_embedding = batch['turn_word_embedding'][:, t]
@@ -263,37 +266,35 @@ class RecurrentGAN_Mingyang():
                 visualizer.track(d_real, d_fake)
 
             hamming = hamming.data.cpu().numpy()[0]
-            #teller_images.extend(image[:4].data.cpu().numpy())
+            # teller_images.extend(image[:4].data.cpu().numpy())
             # drawer_images.extend(fake_image[:4].data.cpu().numpy())
             new_teller_images = []
-            for x  in  image[:4].data.cpu():
-                #print(x.shape)
+            for x in image[:4].data.cpu():
+                # print(x.shape)
                 new_x = self.unorm(x)
                 new_x = transforms.ToPILImage()(new_x).convert('RGB')
-                #new_x = np.array(new_x)[..., ::-1]
+                # new_x = np.array(new_x)[..., ::-1]
                 new_x = np.moveaxis(np.array(new_x), -1, 0)
-                #print(new_x.shape)
+                # print(new_x.shape)
                 new_teller_images.append(new_x)
             teller_images.extend(new_teller_images)
 
             new_drawer_images = []
-            for x  in  fake_image[:4].data.cpu():
-                #print(x.shape)
+            for x in fake_image[:4].data.cpu():
+                # print(x.shape)
                 new_x = self.unorm(x)
                 new_x = transforms.ToPILImage()(new_x).convert('RGB')
-                #new_x = np.array(new_x)[..., ::-1]
+                # new_x = np.array(new_x)[..., ::-1]
                 new_x = np.moveaxis(np.array(new_x), -1, 0)
-                #print(new_x.shape)
+                # print(new_x.shape)
                 new_drawer_images.append(new_x)
             drawer_images.extend(new_drawer_images)
-            #drawer_images.extend(fake_image[:4].data.cpu().numpy())
-            #print(drawer_images[0].shape)
-
-
+            # drawer_images.extend(fake_image[:4].data.cpu().numpy())
+            # print(drawer_images[0].shape)
 
             # entities = str.join(',', list(batch['entities'][hamming > 0]))
             # added_entities.append(entities)
-        #print(iteration)
+        # print(iteration)
         if iteration % self.cfg.vis_rate == 0:
             visualizer.histogram()
             self._plot_losses(visualizer, g_loss, d_loss, aux_loss, iteration)
@@ -306,10 +307,12 @@ class RecurrentGAN_Mingyang():
             self._plot_gradients(visualizer, rnn_gradient, generator_gradient,
                                  discriminator_gradient, gru_gradient, condition_gradient,
                                  img_encoder_gradient, iteration)
-            #Check the teller_images shape
-            #print(len(teller_images))
+            # Check the teller_images shape
+            #print("The length of the teller_images to be ploted is: {}".format(len(teller_images)))
+            # print("The size of the images in teller images is: {}".format(teller_images[0].shape))
             self._draw_images(visualizer, teller_images, drawer_images, nrow=4)
-            #self.logger.write(epoch, "{}/{}".format(iteration,total_iters), d_real, d_fake, d_loss, g_loss)
+            # self.logger.write(epoch, "{}/{}".format(iteration,total_iters),
+            # d_real, d_fake, d_loss, g_loss)
             remaining_time = str(datetime.timedelta(
                 seconds=current_batch_t * (total_iters - iteration)))
             self.logger.write(epoch, "{}/{}".format(iteration, total_iters),
@@ -506,7 +509,8 @@ class RecurrentGAN_Mingyang():
                                        gru, ce, ie, iteration)
 
     def _draw_images(self, visualizer, real, fake, nrow):
-        _recurrent_gan.draw_images_gandraw(self, visualizer, real, fake, nrow) #Changed by Mingyang Zhou
+        _recurrent_gan.draw_images_gandraw(
+            self, visualizer, real, fake, nrow)  # Changed by Mingyang Zhou
 
     def _save(self, fake, path, epoch, iteration):
         _recurrent_gan._save(self, fake, path, epoch, iteration)

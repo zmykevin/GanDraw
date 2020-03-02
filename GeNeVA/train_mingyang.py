@@ -57,7 +57,7 @@ class Trainer():
             self.dataloader.collate_fn = codraw_dataset.collate_data
         elif cfg.dataset == 'iclevr':
             self.dataloader.collate_fn = clevr_dataset.collate_data
-        elif cfg.dataset in ["gandraw", "gandraw_clean", "gandraw_64"]:
+        elif cfg.dataset in ["gandraw", "gandraw_clean", "gandraw_64", "gandraw_64_DA"]:
             self.dataloader.collate_fn = gandraw_dataset.collate_data
 
         self.visualizer = VisdomPlotter(
@@ -73,19 +73,12 @@ class Trainer():
         total_iterations = num_batches * self.cfg.epochs
         current_batch_time = 0  # Record the time it takes to process one batch
         #print("total iteration is: {}".format(total_iterations))
+        visualize_images = []
         for epoch in range(self.cfg.epochs):
-            if cfg.dataset in ['codraw', 'gandraw', "gandraw_64"]:
+            if cfg.dataset in ['codraw', 'gandraw', "gandraw_64", "gandraw_64_DA"]:
                 self.dataset.shuffle()
 
             for batch in self.dataloader:
-                if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0:
-                    torch.cuda.empty_cache()
-                    evaluator = Evaluator.factory(self.cfg, self.visualizer,
-                                                  self.logger)
-                    evaluator.evaluate(iteration_counter)
-                    del evaluator
-
-                iteration_counter += 1
                 if cfg.gan_type == "recurrent_gan":
                     self.model.train_batch(batch,
                                            epoch,
@@ -104,7 +97,17 @@ class Trainer():
                                            )
                     current_batch_time = time.time() - current_batch_start
                     #print("batch_time is: {}".format(current_batch_time))
-                    return
+
+                if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0:
+                    torch.cuda.empty_cache()
+                    evaluator = Evaluator.factory(self.cfg, self.visualizer,
+                                                  self.logger, visualize_images=visualize_images)
+                    evaluator.evaluate(iteration_counter)
+                    del evaluator
+
+                iteration_counter += 1
+                # if iteration_counter > 1:
+                #return
 
 if __name__ == '__main__':
     config_file = "example_args/gandraw_args.json"

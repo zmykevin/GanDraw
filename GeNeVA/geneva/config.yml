@@ -42,3 +42,7 @@ gandraw_clean_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw
 gandraw_64: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_train.h5'
 gandraw_64_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_test.h5'
 gandraw_64_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_val.h5'
+
+gandraw_64_DA: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_train.h5'
+gandraw_64_DA_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_test.h5'
+gandraw_64_DA_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_val.h5'

@@ -12,4 +12,5 @@ DATASETS = {
     'gandraw': gandraw_dataset.GanDrawDataset,
     'gandraw_clean': gandraw_dataset.GanDrawDataset,
     'gandraw_64': gandraw_dataset.GanDrawDataset,
+    'gandraw_64_DA': gandraw_dataset.GanDrawDataset
 }

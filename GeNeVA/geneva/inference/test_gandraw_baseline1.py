@@ -16,7 +16,7 @@ from geneva.data import gandraw_dataset
 
 class GanDraw_Baseline1_Tester():
 
-    def __init__(self, cfg, use_val=False, iteration=None, test_eval=False):
+    def __init__(self, cfg, use_val=False, iteration=None, test_eval=False, visualize_batch=0, visualize_images=[]):
         self.model = INFERENCE_MODELS[cfg.gan_type](cfg)
 
         if use_val:
@@ -40,14 +40,14 @@ class GanDraw_Baseline1_Tester():
                                      drop_last=True)
 
         self.iterations = len(self.dataset) // cfg.batch_size
-        #add current_iteration
+        # add current_iteration
         self.current_iteration = iteration
 
         if cfg.dataset == 'codraw':
             self.dataloader.collate_fn = codraw_dataset.collate_data
         elif cfg.dataset == 'iclevr':
             self.dataloader.collate_fn = clevr_dataset.collate_data
-        elif cfg.dataset in ['gandraw', 'gandraw_clean', 'gandraw_64']:
+        elif cfg.dataset in ['gandraw', 'gandraw_clean', 'gandraw_64', 'gandraw_64_DA']:
             self.dataloader.collate_fn = gandraw_dataset.collate_data
 
         if cfg.results_path is None:
@@ -59,6 +59,17 @@ class GanDraw_Baseline1_Tester():
         self.cfg = cfg
         self.dataset_path = dataset_path
 
-    def test(self):
+        self.visualize_batch = visualize_batch
+        # Keep all the progress images to be processed.
+        self.visualize_images = visualize_images
+
+    def test(self, visualizer=None):
+        i = 0
         for batch in tqdm(self.dataloader, total=self.iterations):
-            self.model.predict(batch, iteration=self.current_iteration)
+            if i == 0:
+                visualize_progress = True
+            else:
+                visualize_progress = False
+            self.model.predict(
+                batch, iteration=self.current_iteration, visualize_batch=self.visualize_batch, visualize_progress=visualize_progress, visualize_images=self.visualize_images, visualizer=visualizer)
+            i += 1

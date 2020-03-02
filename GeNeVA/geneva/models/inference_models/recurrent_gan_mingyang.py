@@ -19,6 +19,7 @@ from geneva.models.networks.generator_factory import GeneratorFactory
 from geneva.models.image_encoder import ImageEncoder
 from geneva.models.sentence_encoder import SentenceEncoder
 from geneva.models.condition_encoder import ConditionEncoder
+from geneva.models import _recurrent_gan
 from torchvision import transforms
 import torchvision
 
@@ -80,17 +81,17 @@ class InferenceRecurrentGAN_Mingyang():
         self.results_path = cfg.results_path
         if not os.path.exists(cfg.results_path):
             os.mkdir(cfg.results_path)
-        self.unorm = UnNormalize(mean=(0.485, 0.456, 0.406), std=(
-                                 0.229, 0.224, 0.225))
+        self.unorm = UnNormalize(mean=(0.5, 0.5, 0.5), std=(
+                                 0.5, 0.5, 0.5))
 
-    def predict(self, batch, iteration=0):
+    def predict(self, batch, iteration=0, visualize_batch=0, visualize_progress=False, visualize_images=[], visualizer=None):
         with torch.no_grad():
             batch_size = len(batch['image'])
             #print("evaluation batch size is: {}".format(batch_size))
             max_seq_len = batch['image'].size(1)
             scene_id = batch['scene_id']
-            
-            #print(dialog_l)
+
+            # print(dialog_l)
             # Initial inputs for the RNN set to zeros
             prev_image = torch.FloatTensor(batch['background'])\
                 .repeat(batch_size, 1, 1, 1)
@@ -101,6 +102,22 @@ class InferenceRecurrentGAN_Mingyang():
             gt_images = []
 
             target_image = batch['image']
+            if visualize_progress:
+                total_visualization = 5 if 5 < max_seq_len else max_seq_len
+                # Put the ground truth of images
+                if not visualize_images:
+                    # visualize_images.extend(
+                    #     [target_image[0, x] for x in range(total_visualization)])
+                    for x in range(total_visualization):
+                        current_target = target_image[visualize_batch, x]
+                        # process the image
+                        current_target = self.unorm(current_target)
+                        current_target = transforms.ToPILImage()(current_target).convert('RGB')
+                        # new_x = np.array(new_x)[..., ::-1]
+                        current_target = np.moveaxis(
+                            np.array(current_target), -1, 0)
+                        visualize_images.append(current_target)
+
             for t in range(max_seq_len):
                 turns_word_embedding = batch['turn_word_embedding'][:, t]
                 turns_lengths = batch['turn_lengths'][:, t]
@@ -119,16 +136,34 @@ class InferenceRecurrentGAN_Mingyang():
 
                 output = output.squeeze(0)
                 output = self.layer_norm(output)
-                
+
                #print("image feature map size is: {}".format(image_feature_map.shape))
                 generated_image = self._forward_generator(batch_size, output,
                                                           image_feature_map)
 
-                
                 if (not self.cfg.inference_save_last_only) or (self.cfg.inference_save_last_only and t == max_seq_len - 1):
                     generated_images.append(generated_image)
                     gt_images.append(batch['image'][:, t])
                 prev_image = generated_image
+
+                if visualize_progress:
+                    if t < total_visualization:
+                        current_generated_im = generated_image[visualize_batch]
+                        # process the image
+                        current_generated_im = self.unorm(
+                            current_generated_im.data.cpu())
+                        current_generated_im = transforms.ToPILImage()(
+                            current_generated_im).convert('RGB')
+                        current_generated_im = np.moveaxis(
+                            np.array(current_generated_im), -1, 0)
+                        visualize_images.append(current_generated_im)
+
+            if visualize_progress:
+                # Call the function to visualize the images
+                #n_row = len(visualize_images) // total_visualization
+                n_row = total_visualization
+                #print("Draw n rows: {}".format(n_row))
+                self._draw_images(visualizer, visualize_images, n_row)
 
         _save_predictions(generated_images, batch[
                           'turn'], scene_id, self.results_path, gt_images, unorm=self.unorm, target_im=target_image, iteration=iteration)
@@ -154,6 +189,10 @@ class InferenceRecurrentGAN_Mingyang():
             snapshot['condition_encoder_state_dict'])
         self.sentence_encoder.load_state_dict(
             snapshot['sentence_encoder_state_dict'])
+
+    def _draw_images(self, visualizer, visualize_images, nrow):
+        _recurrent_gan.draw_images_gandraw_visualization(
+            self, visualizer, visualize_images, nrow)  # Changed by Mingyang Zhou
 
 
 def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=None, target_im=None, iteration=0):

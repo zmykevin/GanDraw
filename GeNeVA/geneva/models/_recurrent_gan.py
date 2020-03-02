@@ -65,7 +65,7 @@ def save_model(state, path, epoch, iteration):
 
 def _save(state, fake, path, epoch, iteration):
     if not os.path.exists(path):
-            os.mkdir(path)
+        os.mkdir(path)
 
     torchvision.utils\
         .save_image(fake.cpu().data,
@@ -78,9 +78,15 @@ def draw_images(state, visualizer, real, fake, nrow):
     visualizer.draw('Real Samples', np.array(real), nrow=nrow)
     visualizer.draw('Generated Samples', np.array(fake), nrow=nrow)
 
+
 def draw_images_gandraw(state, visualizer, real, fake, nrow):
     visualizer.draw_gandraw('Real Samples', np.array(real), nrow=nrow)
     visualizer.draw_gandraw('Generated Samples', np.array(fake), nrow=nrow)
+
+
+def draw_images_gandraw_visualization(state, visualizer, visualize_images, nrow):
+    visualizer.draw_gandraw_visualization('visualize_progress',
+                                          np.array(visualize_images), nrow=nrow)
 
 
 def _plot_gradients(state, visualizer, rnn, gen, disc, gru, ce, ie, iteration):
