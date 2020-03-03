@@ -48,11 +48,12 @@ class Teller_Trainer():
 
         if cfg.dataset in ['codraw', 'codrawDialog']:
             self.dataloader.collate_fn = codraw_dataset.collate_data
-        elif cfg.dataset == "gandraw":
+        elif cfg.dataset in ["gandraw", "gandraw_clean", "gandraw_64", "gandraw_64_DA"]:
             self.dataloader.collate_fn = gandraw_dataset.collate_data
 
+
         ####################Load the Model###################
-        assert cfg.gan_type == "recurrent_gan_teller", "To run a teller trainer, you will need to use 'recurrent_gan_teller' as gan_type"
+        assert cfg.gan_type == "recurrent_teller_drawer", "To run a drawer trainer, you will need to use 'recurrent_gan_drawer' as gan_type"
         self.model = MODELS[cfg.gan_type](cfg)
         self.model.save_model(path, 0, 0)
         #####################################################
@@ -100,7 +101,7 @@ class Teller_Trainer():
 #                 iteration_counter += 1
                 # torch.cuda.empty_cache()
 if __name__ == '__main__':
-    config_file = "example_args/gandraw_teller_args.json"
+    config_file = "example_args/gandraw_drawer_args.json"
     # Load the config_file
     with open(config_file, 'r') as f:
         cfg = json.load(f)

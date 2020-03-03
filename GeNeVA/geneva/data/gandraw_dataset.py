@@ -20,6 +20,7 @@ class GanDrawDataset(nn.Module):
         #cfg.vocab_size = len(self.glove.keys())
 
         self.keys = []
+        # print(path)
         with h5py.File(path, 'r') as f:
             # print(len(list(f.keys())))
             for i in range(len(list(f.keys())) - 1):
@@ -56,7 +57,8 @@ class GanDrawDataset(nn.Module):
 
         # self.image_transform = transforms.Compose([transforms.ToPILImage(),
         #                                            transforms.ToTensor(),
-        #                                            transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])])
+        # transforms.Normalize(mean=[0.485, 0.456, 0.406], std=[0.229, 0.224,
+        # 0.225])])
         self.image_transform = transforms.Compose([
             transforms.ToPILImage(),
             transforms.ToTensor(),
@@ -66,7 +68,8 @@ class GanDrawDataset(nn.Module):
         self.background = cv2.imread(cfg.gandraw_background)
         self.background = cv2.cvtColor(self.background, cv2.COLOR_BGR2RGB)
         if img_size < 128:
-            self.background = cv2.resize(self.background, (img_size, img_size), interpolation=cv2.INTER_AREA)
+            self.background = cv2.resize(
+                self.background, (img_size, img_size), interpolation=cv2.INTER_AREA)
         self.background = np.expand_dims(self.background, axis=0)
         # print(self.background.shape)
         self.background = self.process_image(self.background)

@@ -101,7 +101,8 @@ class InferenceRecurrentGAN_Mingyang():
             generated_images = []
             gt_images = []
 
-            target_image = batch['image']
+            target_image = batch['target_image']
+            #print("target_image shape is: {}".format(target_image.shape))
             if visualize_progress:
                 total_visualization = 5 if 5 < max_seq_len else max_seq_len
                 # Put the ground truth of images
@@ -109,7 +110,7 @@ class InferenceRecurrentGAN_Mingyang():
                     # visualize_images.extend(
                     #     [target_image[0, x] for x in range(total_visualization)])
                     for x in range(total_visualization):
-                        current_target = target_image[visualize_batch, x]
+                        current_target = batch["image"][visualize_batch, x]
                         # process the image
                         current_target = self.unorm(current_target)
                         current_target = transforms.ToPILImage()(current_target).convert('RGB')
