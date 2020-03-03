@@ -107,7 +107,7 @@ class Trainer():
 
                 iteration_counter += 1
                 # if iteration_counter > 1:
-                return
+                # return
 
 if __name__ == '__main__':
     config_file = "example_args/gandraw_args.json"

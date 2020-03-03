@@ -16,7 +16,7 @@ from geneva.data.datasets import DATASETS
 class Evaluator():
 
     @staticmethod
-    def factory(cfg, visualizer, logger, visualize_images):
+    def factory(cfg, visualizer, logger, visualize_images=None):
         # if cfg.gan_type == 'recurrent_gan':
         if cfg.gan_type in ['recurrent_gan']:  # Added by Mingyang
             return RecurrentGANEvaluator(cfg, visualizer, logger)

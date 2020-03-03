@@ -51,9 +51,8 @@ class Teller_Trainer():
         elif cfg.dataset in ["gandraw", "gandraw_clean", "gandraw_64", "gandraw_64_DA"]:
             self.dataloader.collate_fn = gandraw_dataset.collate_data
 
-
         ####################Load the Model###################
-        assert cfg.gan_type == "recurrent_teller_drawer", "To run a drawer trainer, you will need to use 'recurrent_gan_drawer' as gan_type"
+        assert cfg.gan_type == "recurrent_gan_teller", "To run a teller trainer, you will need to use 'recurrent_gan_teller' as gan_type"
         self.model = MODELS[cfg.gan_type](cfg)
         self.model.save_model(path, 0, 0)
         #####################################################
@@ -73,7 +72,7 @@ class Teller_Trainer():
         current_batch_time = 0  # Record the time it takes to process one batch
 
         for epoch in range(self.cfg.epochs):
-            if cfg.dataset in ['codraw', 'codrawDialog', 'gandraw']:
+            if cfg.dataset in ['codraw', 'codrawDialog', 'gandraw', "gandraw_clean", "gandraw_64", "gandraw_64_DA"]:
                 self.dataset.shuffle()
             for batch in self.dataloader:
                 if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0:
@@ -97,11 +96,11 @@ class Teller_Trainer():
                                        )
                 current_batch_time = time.time() - current_batch_start
                 #print("batch_time is: {}".format(current_batch_time))
-                #return
+                # return
 #                 iteration_counter += 1
                 # torch.cuda.empty_cache()
 if __name__ == '__main__':
-    config_file = "example_args/gandraw_drawer_args.json"
+    config_file = "example_args/gandraw_teller_args.json"
     # Load the config_file
     with open(config_file, 'r') as f:
         cfg = json.load(f)

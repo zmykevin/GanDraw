@@ -8,13 +8,13 @@ from visdom import Visdom
 class VisdomPlotter():
     """Plots to Visdom"""
 
-    def __init__(self, env_name='TellDrawRepeat', server='http://localhost'):
+    def __init__(self, env_name='TellDrawRepeat', server='http://localhost', port=8097):
         """Visdom instance constuctor
         Args:
             - env_name: name of the environment (str)
             - server: endpoint (url)
         """
-        self.viz = Visdom(server=server)
+        self.viz = Visdom(server=server, port=port)
         self.env = env_name
         self.plots = {}
         self.real_aggregate = []
