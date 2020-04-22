@@ -23,6 +23,30 @@ from geneva.models import _recurrent_gan
 from torchvision import transforms
 import torchvision
 
+LABEL2COLOR = {
+            0: {"name": "sky", "color": np.array([134, 193, 46])},
+            1: {"name": "dirt", "color": np.array([30, 22, 100])},
+            2: {"name": "gravel", "color": np.array([163, 164, 153])},
+            3: {"name": "mud", "color": np.array([35, 90, 74])},
+            4: {"name": "sand", "color": np.array([196, 15, 241])},
+            5: {"name": "clouds", "color": np.array([198, 182, 115])},
+            6: {"name": "fog", "color": np.array([76, 60, 231])},
+            7: {"name": "hill", "color": np.array([190, 128, 82])},
+            8: {"name": "mountain", "color": np.array([122, 101, 17])},
+            9: {"name": "river", "color": np.array([97, 140, 33])},
+            10: {"name": "rock", "color": np.array([90, 90, 81])},
+            11: {"name": "sea", "color": np.array([255, 252, 51])},
+            12: {"name": "snow", "color": np.array([51, 255, 252])},
+            13: {"name": "stone", "color": np.array([106, 107, 97])},
+            14: {"name": "water", "color": np.array([0, 255, 0])},
+            15: {"name": "bush", "color": np.array([204, 113, 46])},
+            16: {"name": "flower", "color": np.array([0, 0, 255])},
+            17: {"name": "grass", "color": np.array([255, 0, 0])},
+            18: {"name": "straw", "color": np.array([255, 51, 252])},
+            19: {"name": "tree", "color": np.array([255, 51, 175])},
+            20: {"name": "wood", "color": np.array([66, 18, 120])},
+            21: {"name": "road", "color": np.array([255, 255, 0])},
+        }
 
 class UnNormalize(object):
 
@@ -102,6 +126,7 @@ class InferenceRecurrentGAN_Mingyang():
             gt_images = []
 
             target_image = batch['target_image']
+            image_gen_mode = self.cfg.image_gen_mode
             #print("target_image shape is: {}".format(target_image.shape))
             if visualize_progress:
                 total_visualization = 5 if 5 < max_seq_len else max_seq_len
@@ -112,12 +137,22 @@ class InferenceRecurrentGAN_Mingyang():
                     for x in range(total_visualization):
                         current_target = batch["image"][visualize_batch, x]
                         # process the image
-                        current_target = self.unorm(current_target)
-                        current_target = transforms.ToPILImage()(current_target).convert('RGB')
-                        # new_x = np.array(new_x)[..., ::-1]
-                        current_target = np.moveaxis(
-                            np.array(current_target), -1, 0)
+                        if image_gen_mode == "real":
+                            current_target = self.unorm(current_target)
+                            current_target = transforms.ToPILImage()(current_target).convert('RGB')
+                            # new_x = np.array(new_x)[..., ::-1]
+                            current_target = np.moveaxis(np.array(current_target), -1, 0)
+                        elif image_gen_mode == "segmentation_onehot":
+                            current_target_raw = current_target.data.cpu()
+                            seg_map = np.argmax(current_target_raw, axis=0)
+                            current_target = np.zeros((3, seg_map.shape[0], seg_map.shape[1]), dtype=np.uint8)
+                            for i in range(seg_map.shape[0]):
+                                for j in range(seg_map.shape[1]):
+                                    #print(seg_map[i,j].item())
+                                    current_target[:,i,j] = LABEL2COLOR[seg_map[i,j].item()]["color"]
+
                         visualize_images.append(current_target)
+
 
             for t in range(max_seq_len):
                 turns_word_embedding = batch['turn_word_embedding'][:, t]
@@ -151,12 +186,20 @@ class InferenceRecurrentGAN_Mingyang():
                     if t < total_visualization:
                         current_generated_im = generated_image[visualize_batch]
                         # process the image
-                        current_generated_im = self.unorm(
-                            current_generated_im.data.cpu())
-                        current_generated_im = transforms.ToPILImage()(
-                            current_generated_im).convert('RGB')
-                        current_generated_im = np.moveaxis(
-                            np.array(current_generated_im), -1, 0)
+                        if image_gen_mode == "real":
+                            current_generated_im = self.unorm(
+                                current_generated_im.data.cpu())
+                            current_generated_im = transforms.ToPILImage()(
+                                current_generated_im).convert('RGB')
+                            current_generated_im = np.moveaxis(
+                                np.array(current_generated_im), -1, 0)
+                        elif image_gen_mode == "segmentation_onehot":
+                            current_generated_im_raw = current_generated_im.data.cpu()
+                            seg_map = np.argmax(current_generated_im_raw, axis=0)
+                            current_generated_im = np.zeros((3, seg_map.shape[0], seg_map.shape[1]), dtype=np.uint8)
+                            for i in range(seg_map.shape[0]):
+                                for j in range(seg_map.shape[1]):
+                                    current_generated_im[:,i,j] = LABEL2COLOR[seg_map[i,j].item()]["color"]
                         visualize_images.append(current_generated_im)
 
             if visualize_progress:
@@ -166,8 +209,7 @@ class InferenceRecurrentGAN_Mingyang():
                 #print("Draw n rows: {}".format(n_row))
                 self._draw_images(visualizer, visualize_images, n_row)
 
-        _save_predictions(generated_images, batch[
-                          'turn'], scene_id, self.results_path, gt_images, unorm=self.unorm, target_im=target_image, iteration=iteration)
+        _save_predictions(generated_images, batch['turn'], scene_id, self.results_path, gt_images, unorm=self.unorm, target_im=target_image, iteration=iteration, image_gen_mode=self.cfg.image_gen_mode)
 
     def _forward_generator(self, batch_size, condition, image_feature_maps):
         noise = torch.FloatTensor(batch_size,
@@ -196,7 +238,62 @@ class InferenceRecurrentGAN_Mingyang():
             self, visualizer, visualize_images, nrow)  # Changed by Mingyang Zhou
 
 
-def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=None, target_im=None, iteration=0):
+
+
+
+def unormalize(x, unorm):
+    """
+    unormalize the image
+    """
+    new_x = unorm(x)
+    new_x = transforms.ToPILImage()(new_x).convert('RGB')
+    new_x = np.array(new_x)[..., ::-1]
+    #new_x = np.moveaxis(np.array(new_x), -1, 0)
+    return new_x
+
+def unormalize_segmentation(x):
+    new_x = (x + 1) * 128
+    new_x = new_x.transpose(1, 2, 0)[..., ::-1]
+    return new_x
+
+def unormalize_segmentation_onehot(x):
+        """
+        Convert the segmentation into image
+        """
+
+        # LABEL2COLOR = {
+        #     0: {"name": "sky", "color": np.array([134, 193, 46])},
+        #     1: {"name": "dirt", "color": np.array([30, 22, 100])},
+        #     2: {"name": "gravel", "color": np.array([163, 164, 153])},
+        #     3: {"name": "mud", "color": np.array([35, 90, 74])},
+        #     4: {"name": "sand", "color": np.array([196, 15, 241])},
+        #     5: {"name": "clouds", "color": np.array([198, 182, 115])},
+        #     6: {"name": "fog", "color": np.array([76, 60, 231])},
+        #     7: {"name": "hill", "color": np.array([190, 128, 82])},
+        #     8: {"name": "mountain", "color": np.array([122, 101, 17])},
+        #     9: {"name": "river", "color": np.array([97, 140, 33])},
+        #     10: {"name": "rock", "color": np.array([90, 90, 81])},
+        #     11: {"name": "sea", "color": np.array([255, 252, 51])},
+        #     12: {"name": "snow", "color": np.array([51, 255, 252])},
+        #     13: {"name": "stone", "color": np.array([106, 107, 97])},
+        #     14: {"name": "water", "color": np.array([0, 255, 0])},
+        #     15: {"name": "bush", "color": np.array([204, 113, 46])},
+        #     16: {"name": "flower", "color": np.array([0, 0, 255])},
+        #     17: {"name": "grass", "color": np.array([255, 0, 0])},
+        #     18: {"name": "straw", "color": np.array([255, 51, 252])},
+        #     19: {"name": "tree", "color": np.array([255, 51, 175])},
+        #     20: {"name": "wood", "color": np.array([66, 18, 120])},
+        #     21: {"name": "road", "color": np.array([255, 255, 0])},
+        # }
+        seg_map = np.argmax(x, axis=0)
+        new_x = np.zeros((3, seg_map.shape[0], seg_map.shape[1]), dtype=np.uint8)
+        for i in range(seg_map.shape[0]):
+            for j in range(seg_map.shape[1]):
+                new_x[:,i,j] = LABEL2COLOR[seg_map[i,j].item()]["color"]
+        new_x = new_x.transpose(1,2,0)[..., ::-1]
+        return new_x
+
+def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=None, target_im=None, iteration=0, image_gen_mode="real"):
     for i, scene in enumerate(scene_id):
         if not os.path.exists(os.path.join(results_path, str(scene))):
             os.mkdir(os.path.join(results_path, str(scene)))
@@ -207,19 +304,26 @@ def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=Non
                 continue
             # image = (images[t][i].data.cpu().numpy() + 1) * 128
             # image = image.transpose(1, 2, 0)[..., ::-1]
-            image = unorm(images[t][i].data.cpu())
-            image = transforms.ToPILImage()(image).convert('RGB')
-            image = np.array(image)[..., ::-1]
-
+            # image = unorm(images[t][i].data.cpu())
+            # image = transforms.ToPILImage()(image).convert('RGB')
+            # image = np.array(image)[..., ::-1]
+            if image_gen_mode == "real":
+                image = unormalize(images[t][i].data.cpu(), unorm)
+            elif image_gen_mode == "segmentation":
+                image = unormalize_segmentation(images[t][i].data.cpu())
+            elif image_gen_mode == "segmentation_onehot":
+                image = unormalize_segmentation_onehot(images[t][i].data.cpu())
             query = text[i][t]
             # gt_image = (gt_images[t][i].data.cpu().numpy() + 1) * 128
             # gt_image = gt_image.transpose(1, 2, 0)[..., ::-1]
-            gt_image = unorm(gt_images[t][i].data.cpu())
-            gt_image = transforms.ToPILImage()(gt_image).convert('RGB')
-            gt_image = np.array(gt_image)[..., ::-1]
+            if image_gen_mode in ["real", "segmentation"]:
+                gt_image = unorm(gt_images[t][i].data.cpu())
+                gt_image = transforms.ToPILImage()(gt_image).convert('RGB')
+                gt_image = np.array(gt_image)[..., ::-1]
+            elif image_gen_mode == "segmentation_onehot":
+                gt_image = unormalize_segmentation_onehot(gt_images[t][i].data.cpu())
 
-            cv2.imwrite(os.path.join(results_path, str(scene), '{}_{}_{}.png'.format(t, query, iteration)),
-                        image)
+            cv2.imwrite(os.path.join(results_path, str(scene), '{}_{}_{}.png'.format(t, query, iteration)),image)
             cv2.imwrite(os.path.join(results_path, str(scene) + '_gt', '{}_{}.png'.format(t, query)),
                         gt_image)
 
@@ -227,9 +331,17 @@ def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=Non
             #             image)
             # cv2.imwrite(os.path.join(results_path, str(scene) + '_gt',
             # '{}.png'.format(t)),gt_image)
-        target_image = unorm(target_im[i][0].data.cpu())
-        target_image = transforms.ToPILImage()(target_image).convert('RGB')
-        target_image = np.array(target_image)[..., ::-1]
+        
+        # target_image = unorm(target_im[i][0].data.cpu())
+        # target_image = transforms.ToPILImage()(target_image).convert('RGB')
+        # target_image = np.array(target_image)[..., ::-1]
+        if image_gen_mode == "real":
+            target_image = unormalize(target_im[i][0].data.cpu(), unorm)
+        elif image_gen_mode == "segmentation":
+            target_image = unormalize_segmentation(target_im[i][0].data.cpu())
+        elif image_gen_mode == "segmentation_onehot":
+            target_image = unormalize_segmentation_onehot(target_im[i][0].data.cpu())
+        
         cv2.imwrite(os.path.join(results_path, str(scene) + '_gt', 'target.png'),
                     target_image)
 

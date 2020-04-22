@@ -39,6 +39,7 @@ class Trainer():
         self.model.save_model(path, 0, 0)
 
         if cfg.load_snapshot is not None:
+            print("load the model from: {}".format(cfg.load_snapshot))
             self.model.load_model(cfg.load_snapshot)
         shuffle = False
 
@@ -79,6 +80,7 @@ class Trainer():
                 self.dataset.shuffle()
 
             for batch in self.dataloader:
+              #if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0
                 if cfg.gan_type == "recurrent_gan":
                     self.model.train_batch(batch,
                                            epoch,
@@ -107,7 +109,7 @@ class Trainer():
 
                 iteration_counter += 1
                 # if iteration_counter > 1:
-                # return
+                #return
 
 if __name__ == '__main__':
     config_file = "example_args/gandraw_args.json"

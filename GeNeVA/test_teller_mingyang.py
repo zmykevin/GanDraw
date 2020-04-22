@@ -1,8 +1,14 @@
 import os
+import glob
 from pathlib import Path
 import numpy as np
 import cv2
-import json
+
+import torch
+from torch.utils.data import DataLoader
+import json  # Added to initialize the setting in Jupyter Notebook-by Mingyang
+import easydict  # Added to initialize the setting in Jupyter Notebook-by Mingyang
+import time
 
 import torch
 from torch.utils.data import DataLoader
@@ -15,12 +21,12 @@ from geneva.data import codraw_dataset
 from geneva.data import clevr_dataset
 from geneva.data import gandraw_dataset
 
-from nltk.translate.bleu_score import corpus_bleu
-import random
+from geneva.models.teller_image_encoder import TellerImageEncoder
 import torch.nn as nn
+from torch.autograd import Variable
+import torch.optim as optim
 from torch.nn.utils.rnn import pack_padded_sequence
 from torchvision import transforms
-
 
 class AverageMeter(object):
     """Taken from https://github.com/pytorch/examples/blob/master/imagenet/main.py"""
@@ -62,27 +68,22 @@ class UnNormalize(object):
 class TellerTester():
 
     def __init__(self, cfg, use_val=False, iteration=None, test_eval=False, model=None):
-        self.model = model
-        # eval
-        self.model.img_encoder.eval()
-        self.model.utterance_decoder.eval()
-        self.model.dialog_encoder.eval()
-        self.model.utterance_decoder.module.set_tf(False)
-
         if use_val:
             dataset_path = cfg.val_dataset
             model_path = os.path.join(cfg.log_path, cfg.exp_name)
+        elif test_eval:
+            dataset_path = cfg.test_dataset
+            model_path = cfg.load_snapshot
         else:
             dataset_path = cfg.dataset
             model_path = cfg.load_snapshot
-        if test_eval:
-            dataset_path = cfg.test_dataset
-            model_path = cfg.load_snapshot
+        
 
-        # self.model.load(model_path, iteration), not loadning the model
         self.dataset = DATASETS[cfg.dataset](path=keys[dataset_path],
                                              cfg=cfg,
                                              img_size=cfg.img_size)
+        # update the cfg's vocab_size
+        cfg.vocab_size = self.dataset.vocab_size
         self.dataloader = DataLoader(self.dataset,
                                      batch_size=1,
                                      shuffle=False,
@@ -101,6 +102,19 @@ class TellerTester():
                                             'results')
             if not os.path.exists(cfg.results_path):
                 os.mkdir(cfg.results_path)
+        
+        #Load the model
+        self.model = INFERENCE_MODELS[cfg.gan_type](cfg)
+        #
+
+        # eval
+        self.model.img_encoder.eval()
+        self.model.utterance_decoder.eval()
+        self.model.dialog_encoder.eval()
+        self.model.utterance_decoder.module.set_tf(False)
+        
+        #load the snap_shot
+        self.model.load_model(model_path)
 
         self.cfg = cfg
         self.dataset_path = dataset_path
@@ -118,7 +132,6 @@ class TellerTester():
                                  0.5, 0.5, 0.5))
     def test(self, iteration=0, visualizer=None):
         #set teacher forcing to "False"
-
         with torch.no_grad():
             # Randomly Sample an Index to do Qualitative Example
             #sampled_index = random.randint(0,len(self.dataloader))
@@ -284,12 +297,15 @@ class TellerTester():
                 #append the dialog
                 #output_dialogs.append(current_output_dialog)
                 #save the dialog
-                output_file_path = self.output_dir + '/' + str(i) + '/' + 'teller_output_{}.json'.format(iteration)
+                output_file_path = self.output_dir + '/' + str(i) + '/' + 'teller_output.json'
                 with open(output_file_path, 'w') as fp:
                     json.dump(current_output_dialog, fp, indent=4)
                 #save the corresponding images
 
-
+                return
+                
+                
+                
 
             teller_val_losses.compute_mean()
             bleu_1 = corpus_bleu(references, hypothesis, weights=(1, 0, 0, 0))
@@ -310,4 +326,14 @@ class TellerTester():
                 visualizer.plot("BLEU_2", "val", iteration, bleu_2 * 100)
                 visualizer.plot("BLEU_1", "val", iteration, bleu_1 * 100)
                 print(type(teller_val_losses.avg.item()))
-                visualizer.plot("Teller Decoder Val Loss", 'val', iteration, teller_val_losses.avg.item())
+                visualizer.plot("Teller Decoder Val Loss", 'val', iteration, teller_val_losses.avg.item(), total=self.iterations)
+            self.model.predict(batch)
+
+if __name__ == "__main__":
+    config_file = "example_args/gandraw_teller_args.json"
+    with open(config_file, 'r') as f:
+        cfg = json.load(f)
+
+    cfg = easydict.EasyDict(cfg)
+    tester = TellerTester(cfg, test_eval=True)
+    tester.test()

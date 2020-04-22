@@ -14,6 +14,7 @@ from torch.nn.parallel import DistributedDataParallel  # Mingyang Zhou
 import numpy as np
 import datetime  # Added by Mingyang Zhou
 from torchvision import transforms  # Added by Mingyang Zhou
+import re
 
 from geneva.models.networks.generator_factory import GeneratorFactory
 from geneva.models.networks.discriminator_factory import DiscriminatorFactory
@@ -143,6 +144,18 @@ class RecurrentGAN_Mingyang():
         self.criterion = LOSSES[cfg.criterion]()
         self.aux_criterion = DataParallel(torch.nn.BCELoss()).cuda()
 
+        
+        #Added by Mingyang for segmentation loss 
+        if cfg.balanced_seg:
+            label_weights = np.array([3.33621116e-01, 2.60017620e-03, 4.04102299e-04, 2.90346960e-05, 1.42394600e-03, 9.58984050e-02, 3.32219759e-04, 1.49962580e-02, 1.64720764e-01, 4.94427830e-02, 3.02135264e-02, 3.97419444e-02, 
+            2.08731296e-02, 8.37347633e-04, 7.05748956e-02, 4.49577350e-03, 3.50491033e-03, 6.72492854e-02, 3.02388775e-03, 9.59623788e-02, 0.00000000e+00, 5.41150398e-05])
+            #convert numpy to tensor
+            label_weights = torch.from_numpy(label_weights)
+            label_weights = label_weights.type(torch.FloatTensor)
+            self.seg_criterion = DataParallel(torch.nn.CrossEntropyLoss(weight=label_weights)).cuda()
+        else:
+            self.seg_criterion = DataParallel(torch.nn.CrossEntropyLoss()).cuda()
+
         # endregion
 
         self.cfg = cfg
@@ -151,6 +164,9 @@ class RecurrentGAN_Mingyang():
         # define unorm
         self.unorm = UnNormalize(mean=(0.5, 0.5, 0.5), std=(
                                  0.5, 0.5, 0.5))
+
+        # define the label distribution
+        
 
     def train_batch(self, batch, epoch, iteration, visualizer, logger, total_iters=0, current_batch_t=0):
         """
@@ -183,10 +199,13 @@ class RecurrentGAN_Mingyang():
             turns_lengths = batch['turn_lengths'][:, t]
             objects = batch['objects'][:, t]
             seq_ended = t > (batch['dialog_length'] - 1)
-
+            
             image_feature_map, image_vec, object_detections = \
                 self.image_encoder(prev_image)
             _, current_image_feat, _ = self.image_encoder(image)
+            
+            # print("[image_encoder] image_feature_map shape is: {}".format(image_feature_map.shape))
+            # print("[image_encoder] image_vec shape is: {}".format(image_vec.shape))
 
             turn_embedding = self.sentence_encoder(turns_word_embedding,
                                                    turns_lengths)
@@ -208,12 +227,17 @@ class RecurrentGAN_Mingyang():
             fake_image, mu, logvar, sigma = self._forward_generator(batch_size,
                                                                     output.detach(),
                                                                     image_feature_map)
+            
+            #print("[image_generator] fake_image size is: {}".format(fake_image.shape))
+            #print("[image_generator] fake_image_one_pixel is: {}".format(fake_image[0,:,0,0]))
 
             visualizer.track_sigma(sigma)
 
             hamming = objects - prev_objects
             hamming = torch.clamp(hamming, min=0)
-
+            
+            # print(image.shape)
+            # print(disc_prev_image.shape)
             d_loss, d_real, d_fake, aux_loss, discriminator_gradient = \
                 self._optimize_discriminator(image,
                                              fake_image.detach(),
@@ -223,6 +247,21 @@ class RecurrentGAN_Mingyang():
                                              hamming,
                                              self.cfg.gp_reg,
                                              self.cfg.aux_reg)
+            
+            # append the segmentation loss accordingly
+            if re.search(r"seg", self.cfg.gan_type):
+                assert self.cfg.seg_reg > 0, "the sge_reg must be larger than 0"
+                if self.cfg.gan_type == "recurrent_gan_mingyang_img64_seg":
+                    #The size of seg_fake is adjusted to (Batch, N, C)
+                    seg_fake = fake_image.view(fake_image.size(0), fake_image.size(1), -1).permute(0,2,1)
+                    #The size of the seg_gt is obtained from image
+                    seg_gt = torch.argmax(image, dim=1).view(image.size(0), -1)
+
+            else:
+                assert self.cfg.seg_reg == 0, "the sge_reg must be equal to 0"
+                seg_fake = None
+                seg_gt = None
+
 
             g_loss, generator_gradient = \
                 self._optimize_generator(fake_image,
@@ -232,7 +271,11 @@ class RecurrentGAN_Mingyang():
                                          self.cfg.aux_reg,
                                          seq_ended,
                                          mu,
-                                         logvar)
+                                         logvar,
+                                         self.cfg.seg_reg,
+                                         seg_fake,
+                                         seg_gt)
+            #return
 
             if self.cfg.teacher_forcing:
                 prev_image = image
@@ -271,10 +314,21 @@ class RecurrentGAN_Mingyang():
             new_teller_images = []
             for x in image[:4].data.cpu():
                 # print(x.shape)
-                new_x = self.unorm(x)
-                new_x = transforms.ToPILImage()(new_x).convert('RGB')
-                # new_x = np.array(new_x)[..., ::-1]
-                new_x = np.moveaxis(np.array(new_x), -1, 0)
+                # new_x = self.unorm(x)
+                # new_x = transforms.ToPILImage()(new_x).convert('RGB')
+                # # new_x = np.array(new_x)[..., ::-1]
+                # new_x = np.moveaxis(np.array(new_x), -1, 0)
+                
+                if self.cfg.image_gen_mode == "real":
+                    new_x = self.unormalize(x)
+                elif self.cfg.image_gen_mode == "segmentation":
+                    new_x = self.unormalize_segmentation(x.data.numpy())
+                elif self.cfg.image_gen_mode == "segmentation_onehot":
+                    #TODO: Implement the functino to convert new_x to colored_image
+                    new_x = self.unormalize_segmentation_onehot(x.data.cpu().numpy())
+                    #print(new_x.shape)
+                    #return
+
                 # print(new_x.shape)
                 new_teller_images.append(new_x)
             teller_images.extend(new_teller_images)
@@ -282,10 +336,20 @@ class RecurrentGAN_Mingyang():
             new_drawer_images = []
             for x in fake_image[:4].data.cpu():
                 # print(x.shape)
-                new_x = self.unorm(x)
-                new_x = transforms.ToPILImage()(new_x).convert('RGB')
-                # new_x = np.array(new_x)[..., ::-1]
-                new_x = np.moveaxis(np.array(new_x), -1, 0)
+                # new_x = self.unorm(x)
+                # new_x = transforms.ToPILImage()(new_x).convert('RGB')
+                # # new_x = np.array(new_x)[..., ::-1]
+                # new_x = np.moveaxis(np.array(new_x), -1, 0)
+                
+                if self.cfg.image_gen_mode == "real":
+                    new_x = self.unormalize(x)
+                elif self.cfg.image_gen_mode == "segmentation":
+                    new_x = self.unormalize_segmentation(x.data.cpu().numpy())
+                elif self.cfg.image_gen_mode == "segmentation_onehot":
+                    #TODO: Implement the functino to convert new_x to colored_image
+                    new_x = self.unormalize_segmentation_onehot(x.data.cpu().numpy())
+
+
                 # print(new_x.shape)
                 new_drawer_images.append(new_x)
             drawer_images.extend(new_drawer_images)
@@ -295,6 +359,8 @@ class RecurrentGAN_Mingyang():
             # entities = str.join(',', list(batch['entities'][hamming > 0]))
             # added_entities.append(entities)
         # print(iteration)
+
+
         if iteration % self.cfg.vis_rate == 0:
             visualizer.histogram()
             self._plot_losses(visualizer, g_loss, d_loss, aux_loss, iteration)
@@ -307,9 +373,7 @@ class RecurrentGAN_Mingyang():
             self._plot_gradients(visualizer, rnn_gradient, generator_gradient,
                                  discriminator_gradient, gru_gradient, condition_gradient,
                                  img_encoder_gradient, iteration)
-            # Check the teller_images shape
-            #print("The length of the teller_images to be ploted is: {}".format(len(teller_images)))
-            # print("The size of the images in teller images is: {}".format(teller_images[0].shape))
+            
             self._draw_images(visualizer, teller_images, drawer_images, nrow=4)
             # self.logger.write(epoch, "{}/{}".format(iteration,total_iters),
             # d_real, d_fake, d_loss, g_loss)
@@ -329,8 +393,8 @@ class RecurrentGAN_Mingyang():
             path = os.path.join(self.cfg.log_path,
                                 self.cfg.exp_name)
 
-            self._save(fake_image[:4], path, epoch,
-                       iteration)
+            # self._save(fake_image[:4], path, epoch,
+            #            iteration)
             if not self.cfg.debug:
                 self.save_model(path, epoch, iteration)
 
@@ -396,12 +460,12 @@ class RecurrentGAN_Mingyang():
         return d_loss_scalar, d_real_np, d_fake_np, aux_loss_scalar, grad_norm_scalar
 
     def _optimize_generator(self, fake_images, prev_image, condition, objects, aux_reg,
-                            mask, mu, logvar):
+                            mask, mu, logvar, seg_reg=0, seg_fake=None, seg_gt=None):
         self.generator.zero_grad()
         d_fake, aux_fake, _ = self.discriminator(fake_images, condition,
                                                  prev_image)
         g_loss = self._generator_masked_loss(d_fake, aux_fake, objects,
-                                             aux_reg, mu, logvar, mask)
+                                             aux_reg, mu, logvar, mask, seg_reg, seg_fake, seg_gt)
 
         g_loss.backward(retain_graph=True)
         gen_grad_norm = _recurrent_gan.get_grad_norm(
@@ -470,9 +534,13 @@ class RecurrentGAN_Mingyang():
         return d_loss, aux_losses
 
     def _generator_masked_loss(self, d_fake, aux_fake, objects, aux_reg,
-                               mu, logvar, mask):
+                               mu, logvar, mask, seg_reg=0, seg_fake=None, seg_gt=None):
         """Accumulates losses only for sequences that have not ended
-        to avoid back-propagation through padding"""
+        to avoid back-propagation through padding
+        Append the segmentation loss to the model.
+        seg_fake: (1*C*H*W)
+        seg_gt: (1*H*W)
+        """
         g_loss = []
         for b, ended in enumerate(mask):
             if not ended:
@@ -487,8 +555,15 @@ class RecurrentGAN_Mingyang():
                         kl_penalty(mu[b], logvar[b])
                 else:
                     kl_loss = 0
+                #Append a seg_loss to the total generator loss
+                if seg_reg > 0:
+                    #TODO: Implement the Segmentation Loss here
+                    seg_loss = seg_reg * self.seg_criterion(seg_fake[b], seg_gt[b]) #By default it should just give a mean number
+                    #print(seg_loss)
+                else:
+                    seg_loss = 0
 
-                g_loss.append(sample_loss + aux_loss + kl_loss)
+                g_loss.append(sample_loss + aux_loss + kl_loss + seg_loss)
 
         g_loss = torch.stack(g_loss)
         return g_loss.mean()
@@ -520,4 +595,55 @@ class RecurrentGAN_Mingyang():
 
     def load_model(self, snapshot_path):
         _recurrent_gan.load_model(self, snapshot_path)
+
+    def unormalize(self, x):
+        """
+        unormalize the image
+        """
+        new_x = self.unorm(x)
+        new_x = transforms.ToPILImage()(new_x).convert('RGB')
+        # new_x = np.array(new_x)[..., ::-1]
+        new_x = np.moveaxis(np.array(new_x), -1, 0)
+        return new_x
+
+    def unormalize_segmentation(self, x):
+        new_x = (x + 1) * 127.5
+        # new_x = new_x.transpose(1, 2, 0)[..., ::-1]
+        return new_x
+    def unormalize_segmentation_onehot(self, x):
+        """
+        Convert the segmentation into image
+        """
+
+        LABEL2COLOR = {
+            0: {"name": "sky", "color": np.array([134, 193, 46])},
+            1: {"name": "dirt", "color": np.array([30, 22, 100])},
+            2: {"name": "gravel", "color": np.array([163, 164, 153])},
+            3: {"name": "mud", "color": np.array([35, 90, 74])},
+            4: {"name": "sand", "color": np.array([196, 15, 241])},
+            5: {"name": "clouds", "color": np.array([198, 182, 115])},
+            6: {"name": "fog", "color": np.array([76, 60, 231])},
+            7: {"name": "hill", "color": np.array([190, 128, 82])},
+            8: {"name": "mountain", "color": np.array([122, 101, 17])},
+            9: {"name": "river", "color": np.array([97, 140, 33])},
+            10: {"name": "rock", "color": np.array([90, 90, 81])},
+            11: {"name": "sea", "color": np.array([255, 252, 51])},
+            12: {"name": "snow", "color": np.array([51, 255, 252])},
+            13: {"name": "stone", "color": np.array([106, 107, 97])},
+            14: {"name": "water", "color": np.array([0, 255, 0])},
+            15: {"name": "bush", "color": np.array([204, 113, 46])},
+            16: {"name": "flower", "color": np.array([0, 0, 255])},
+            17: {"name": "grass", "color": np.array([255, 0, 0])},
+            18: {"name": "straw", "color": np.array([255, 51, 252])},
+            19: {"name": "tree", "color": np.array([255, 51, 175])},
+            20: {"name": "wood", "color": np.array([66, 18, 120])},
+            21: {"name": "road", "color": np.array([255, 255, 0])},
+        }
+        seg_map = np.argmax(x, axis=0)
+        new_x = np.zeros((3, seg_map.shape[0], seg_map.shape[1]), dtype=np.uint8)
+        for i in range(seg_map.shape[0]):
+            for j in range(seg_map.shape[1]):
+                new_x[:,i,j] = LABEL2COLOR[seg_map[i,j]]["color"]
+        return new_x
+
     # endregion

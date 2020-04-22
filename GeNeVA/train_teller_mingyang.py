@@ -96,7 +96,7 @@ class Teller_Trainer():
                                        )
                 current_batch_time = time.time() - current_batch_start
                 #print("batch_time is: {}".format(current_batch_time))
-                # return
+                #return
 #                 iteration_counter += 1
                 # torch.cuda.empty_cache()
 if __name__ == '__main__':

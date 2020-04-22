@@ -46,6 +46,18 @@ class ImageEncoder(nn.Module):
                               bias=False),
                     nn.BatchNorm2d(cfg.image_feat_dim),
                 )
+            elif cfg.img_encoder_type == "conv_seg":
+                self.image_encoder = nn.Sequential(
+                    nn.Conv2d(22, 64, 4, 2, 1, bias=False),
+                    nn.ReLU(),
+                    nn.BatchNorm2d(64),
+                    nn.Conv2d(64, 128, 4, 2, 1, bias=False),
+                    nn.ReLU(),
+                    nn.BatchNorm2d(128),
+                    nn.Conv2d(128, cfg.image_feat_dim, 4, 2, 1,
+                              bias=False),
+                    nn.BatchNorm2d(cfg.image_feat_dim),
+                )
 
             self.object_detector = nn.Linear(cfg.image_feat_dim,
                                              cfg.num_objects)

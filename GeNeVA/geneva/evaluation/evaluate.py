@@ -21,7 +21,7 @@ class Evaluator():
         if cfg.gan_type in ['recurrent_gan']:  # Added by Mingyang
             return RecurrentGANEvaluator(cfg, visualizer, logger)
         # Added by Mingyang
-        if cfg.gan_type in ['recurrent_gan_mingyang', 'recurrent_gan_mingyang_img64', 'recurrent_gan_stackGAN']:
+        if cfg.gan_type in ['recurrent_gan_mingyang', 'recurrent_gan_mingyang_img64', 'recurrent_gan_stackGAN', 'recurrent_gan_mingyang_img64_seg']:
             return GanDraw_Baseline1_Evaluator(cfg, visualizer, logger, visualize_images)
         if cfg.gan_type in ['recurrent_gan_teller']:
             return TellerEvaluator(cfg, visualizer, logger)
@@ -73,7 +73,7 @@ class GanDraw_Baseline1_Evaluator():
                                                  img_size=cfg.img_size)
         # print("length of the dataset: {}".format(len(self.val_dataset)))
         self.visualize_batch = randint(
-            0, cfg.batch_size)
+            0, cfg.batch_size-1)
         self.visualize_images = visualize_images
 
     def evaluate(self, iteration):
