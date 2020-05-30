@@ -64,16 +64,6 @@ class GanDrawDataset(nn.Module):
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.5, 0.5, 0.5], std=[0.5, 0.5, 0.5])])
 
-        # Preprocess the Raw Back Ground Images
-        self.background = cv2.imread(cfg.gandraw_background)
-        self.background = cv2.cvtColor(self.background, cv2.COLOR_BGR2RGB)
-        if img_size < 128:
-            self.background = cv2.resize(
-                self.background, (img_size, img_size), interpolation=cv2.INTER_AREA)
-        self.background = np.expand_dims(self.background, axis=0)
-        # print(self.background.shape)
-        self.background = self.process_image(self.background)
-
         self.gandraw_entities = {
             156: {"name": "sky", "index": 0},
             110: {"name": "dirt", "index": 1},
@@ -95,9 +85,36 @@ class GanDrawDataset(nn.Module):
             123: {"name": "grass", "index": 17},
             162: {"name": "straw", "index": 18},
             168: {"name": "tree", "index": 19},
-            181: {"name": "wood", "index": 20}
+            181: {"name": "wood", "index": 20},
+            148: {"name": "road", "index": 21}
         }
         self.gandraw_entities_len = cfg.num_objects
+        #define the generation image mode
+        self.image_gen_mode = cfg.image_gen_mode
+        
+        if self.image_gen_mode == "real":
+            # Preprocess the Raw Back Ground Images
+            self.background = cv2.imread(cfg.gandraw_background)
+            self.background = cv2.cvtColor(self.background, cv2.COLOR_BGR2RGB)
+            if img_size < 128:
+                self.background = cv2.resize(
+                    self.background, (img_size, img_size), interpolation=cv2.INTER_AREA)
+            self.background = np.expand_dims(self.background, axis=0)
+            # print(self.background.shape)
+            
+            self.background = self.process_image(self.background)
+        elif self.image_gen_mode == "segmentation":
+            self.background = cv2.imread(cfg.gandraw_background_segmentation)
+            self.background = np.expand_dims(self.background, axis=0)
+            self.background = self.process_image(self.background)
+        elif self.image_gen_mode == "segmentation_onehot":
+            #TODO: The number of class should be defined in the configuration file
+            self.background = np.zeros((img_size, img_size, 22), dtype=np.int32)
+            self.background[:,:,0] = 1 #Define the background with sky label activated
+            self.background = np.expand_dims(self.background, axis=0) #expand the dimension for batch
+            self.background = self.process_image(self.background)
+
+        self.unk_embedding = np.load("/home/zmykevin/CoDraw_Gaugan/code/GanDraw/GeNeVA/unk_embedding.npy")
 
     def __len__(self):
         with h5py.File(self.dataset_path, 'r') as f:
@@ -115,13 +132,30 @@ class GanDrawDataset(nn.Module):
 
         example = self.dataset[
             str(self.blocks_maps[block_index][sample_index])]
-        images = example['images'].value
-        # Added for counting objects
+        if self.image_gen_mode == "real":
+            images = example['images'].value
+        elif self.image_gen_mode == "segmentation":
+            # Added for counting objects
+            images = example['images_semantic'].value
+        elif self.image_gen_mode == "segmentation_onehot":
+            images = example['images_semantic_onehot'].value
+            #print(images.shape)
+        #print(images.shape)
         images_semantic = example['images_semantic'].value
 
         turns = example['utterences'].value
         scene_id = example['scene_id'].value
-        target_images = example['target_images'].value
+        #target_images = example['target_images'].value
+        
+        if self.image_gen_mode == "real":
+            target_images = example['target_images'].value
+        elif self.image_gen_mode == "segmentation":
+            # Added for counting objects
+            target_images = example['target_images_segmentation'].value
+        elif self.image_gen_mode == "segmentation_onehot":
+            target_images = example['target_images_segmentation_onehot'].value
+
+        #print(target_images.shape)
         target_images_segmentation = example[
             'target_images_segmentation'].value
         target_images_path = example['target_images_path'].value
@@ -135,7 +169,7 @@ class GanDrawDataset(nn.Module):
 
         for i, turn in enumerate(turns_tokenized):
             for j, w in enumerate(turn):
-                turns_word_embeddings[i, j] = self.glove[w]
+                turns_word_embeddings[i, j] = self.glove.get(w, self.unk_embedding)
 
         # Process Images
         images = self.process_image(images)
@@ -186,15 +220,36 @@ class GanDrawDataset(nn.Module):
         return sample
 
     def process_image(self, images):
-        result_images = np.zeros_like(
-            images.transpose(0, 3, 1, 2), dtype=np.float32)
-        for i in range(images.shape[0]):
-            current_img = images[i]
-            current_processed_img = self.image_transform(current_img)
-            current_processed_img = current_processed_img.numpy()
-            result_images[i] = current_processed_img
+        if self.image_gen_mode == "real":
+            result_images = np.zeros_like(
+                images.transpose(0, 3, 1, 2), dtype=np.float32)
+            for i in range(images.shape[0]):
+                current_img = images[i]
+                current_processed_img = self.image_transform(current_img)
+                current_processed_img = current_processed_img.numpy()
+                result_images[i] = current_processed_img
+        
+        elif self.image_gen_mode == "segmentation":
+            result_images = images[..., ::-1]
+            #print(result_images.shape)
+            result_images = result_images / 128. - 1
+            result_images += np.random.uniform(size=result_images.shape, low=0, high=1. / 64)
+            result_images = result_images.transpose(0, 3, 1, 2)
+        elif self.image_gen_mode == "segmentation_onehot":
+            #We don't preprocess the image in this setting, switch the channel to the second dimension
+            result_images = images.transpose(0,3,1,2)
+
 
         return result_images
+
+    # def process_seg_image(self, images):
+    #     result_images = images[..., ::-1]
+    #     result_images = result_images / 128. - 1
+    #     result_images += np.random.uniform(size=result_images.shape, low=0, high=1. / 64)
+    #     result_images = result_images.transpose(0, 3, 1, 2)
+
+    #     return result_images
+
 
     def separate_drawer_teller(self, turns_tokenized):
         """
@@ -259,6 +314,7 @@ def collate_data(batch):
     #print("max_len is: {}".format(max_len))
     batch_size = len(batch)
     _, c, h, w = batch[0]['image'].shape
+    #print(h)
 
     batch_longest_turns = [max(b['turn_lengths']) for b in batch]
     longest_turn = max(batch_longest_turns)
@@ -267,7 +323,7 @@ def collate_data(batch):
     # 300 is the word2vec dimension
     stacked_turns = np.zeros((batch_size, max_len, longest_turn, 300))
     stacked_turn_lengths = np.zeros((batch_size, max_len))
-    stacked_objects = np.zeros((batch_size, max_len, 21))
+    stacked_objects = np.zeros((batch_size, max_len, 22)) #22 is the current number of objects
     turns_text = []
     scene_ids = []
 

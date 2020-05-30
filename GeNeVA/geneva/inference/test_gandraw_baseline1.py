@@ -16,15 +16,20 @@ from geneva.data import gandraw_dataset
 
 class GanDraw_Baseline1_Tester():
 
-    def __init__(self, cfg, use_val=False, iteration=None, test_eval=False, visualize_batch=0, visualize_images=[]):
+    def __init__(self, cfg, use_val=False, use_test=False, iteration=None, test_eval=False, visualize_batch=0, visualize_images=[]):
         self.model = INFERENCE_MODELS[cfg.gan_type](cfg)
 
         if use_val:
             dataset_path = cfg.val_dataset
+            #dataset_path = cfg.test_dataset
+            model_path = os.path.join(cfg.log_path, cfg.exp_name)
+        elif use_test:
+            dataset_path = cfg.test_dataset
             model_path = os.path.join(cfg.log_path, cfg.exp_name)
         else:
             dataset_path = cfg.dataset
             model_path = cfg.load_snapshot
+        
         if test_eval:
             dataset_path = cfg.test_dataset
             model_path = cfg.load_snapshot

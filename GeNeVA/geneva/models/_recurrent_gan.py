@@ -80,6 +80,7 @@ def draw_images(state, visualizer, real, fake, nrow):
 
 
 def draw_images_gandraw(state, visualizer, real, fake, nrow):
+    print(type(real))
     visualizer.draw_gandraw('Real Samples', np.array(real), nrow=nrow)
     visualizer.draw_gandraw('Generated Samples', np.array(fake), nrow=nrow)
 

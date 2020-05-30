@@ -86,18 +86,18 @@ class Teller():
         self.utterance_decoder.module.set_tf(True)
 
         teller_losses = AverageMeter()
+        total_teller_loss =  0
         background_image = batch['background'].repeat(batch_size, 1, 1, 1)
         #print("background_image size is: {}".format(background_image.shape))
+        enc_state = None
         for t in range(max_seq_len + 1):
             # zero the optimizer
-            self.optimizer.zero_grad()
             current_target_img = batch['target_image'][:, 0]
             current_target_img_feat = self.img_encoder(current_target_img)
             current_teller_utterance = batch['teller_turn_ids'][:, t, :]
             # print(current_teller_utterance.size())
 
             # Encode the current drawer's image and gt image
-            enc_state = None
             if t > 0:
                 current_drawer_img = batch['image'][
                     :, t - 1]  # (batch_size, color_channel, )
@@ -140,7 +140,7 @@ class Teller():
             # compute the loss
             teller_loss = self.cross_entropy_loss(preds, targets)
             teller_loss += att_regularization
-
+            #total_teller_loss  +=  teller_loss
             with torch.no_grad():
                 total_caption_length = torch.sum(teller_turn_lengths[:, t])
                 teller_losses.update(teller_loss.item(),
@@ -148,13 +148,16 @@ class Teller():
 
             # backpropagate the loss
 
-            teller_loss.backward()
+            teller_loss.backward(retain_graph=True)
             self.optimizer.step()
+            self.optimizer.zero_grad()
             del preds
             del alphas
             del att_regularization
             del current_target_img_feat, current_img_feat, concatenated_feature
             del teller_loss
+         
+        
 
         # Average the loss
         # teller_loss = teller_loss / (max_seq_len+1)
