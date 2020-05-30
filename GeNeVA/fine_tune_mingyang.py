@@ -5,8 +5,6 @@ import torch
 from torch.utils.data import DataLoader
 import json  # Added to initialize the setting in Jupyter Notebook-by Mingyang
 import easydict  # Added to initialize the setting in Jupyter Notebook-by Mingyang
-import random
-import numpy as np
 
 from geneva.data.datasets import DATASETS
 from geneva.evaluation.evaluate import Evaluator
@@ -19,7 +17,6 @@ from geneva.data import gandraw_dataset
 # from torch.nn import DataParallel #Added by Mingyang Zhou
 
 import time
-
 
 class Trainer():
 
@@ -72,7 +69,6 @@ class Trainer():
     def train(self):
         iteration_counter = 0  # Last Iteration
         best_saved_iteration = 0 #highest iteration that we have a saved model
-        highest_saved_iteration = 0
         best_scene_sim_score = 0
         #print("Total number of training data: {}".format(len(self.dataset)))
         num_batches = len(self.dataloader)
@@ -117,51 +113,70 @@ class Trainer():
                     if metrics_report['scene_sim_score'] > best_scene_sim_score:
                         best_scene_sim_score = metrics_report['scene_sim_score']
                         best_saved_iteration = iteration_counter
-                    highest_saved_iteration = iteration_counter
 
                     del evaluator
 
                 iteration_counter += 1
                 # if iteration_counter > 1:
-                #return
                 
             
         #Evaluate on the test data
         torch.cuda.empty_cache()
         evaluator = Evaluator.factory(self.cfg, self.visualizer, self.logger, visualize_images=visualize_images)
         metrics_report = evaluator.evaluate(best_saved_iteration, use_test=True)
-        #highest_metrics_report =  evaluator.evaluate(highest_saved_iteration, use_test=True)
         print("best iteration is: {}".format(best_saved_iteration))
-        #print("highest iteration is: {}".format(highest_saved_iteration))
-
-
         print("evaluation results for iter: {} on test data: \n".format(best_saved_iteration))
         for key, value in metrics_report.items():
             print("{metric_name}: {metric_value}; \n".format(metric_name=key, metric_value=value))
-
-        # print("evaluation results for iter: {} on test data: \n".format(highest_saved_iteration))
-        # for key, value in highest_metrics_report.items():
-        #     print("{metric_name}: {metric_value}; \n".format(metric_name=key, metric_value=value))
-
         del evaluator
 
 if __name__ == '__main__':
-    config_file = "example_args/gandraw_args.json"
-    # Load the config_file
-    with open(config_file, 'r') as f:
-        cfg = json.load(f)
-    # convert cfg as easydict
-    cfg = easydict.EasyDict(cfg)
-    cfg.load_snapshot = None
+	# Load the config_file
+	config_file = "example_args/gandraw_args.json"
+	with open(config_file, 'r') as f:
+		cfg_dict = json.load(f)
 
-    #Fix the seed
-    n_gpu = torch.cuda.device_count()
-    random.seed(cfg.seed)
-    np.random.seed(cfg.seed)
-    torch.manual_seed(cfg.seed)
-    if n_gpu > 0:
-        torch.cuda.manual_seed_all(cfg.seed)
-    trainer = Trainer(cfg)
-    print("Finishing Initilizing the Trainer")
-    trainer.train()
 
+	#Reinitialize the result place
+	finetune_result_path = "logs/gandraw/finetune/baseline1_filtered"
+	exp_setting = {"discriminator_lr": [0.0001, 0.001],
+	               "generator_lr": [0.00001, 0.0002],
+	               "gru_lr": [0.001, 0.01],
+	               "rnn_lr": [0.0001, 0.001],
+                   "seg_reg": [10],
+                   "feature_encoder_lr": [0.003, 0.01],
+                   "generator_activation": ["leaky_relu"],
+                   "aux_reg": [1, 100],
+                   "cond_kl_reg": [0.1, 10],
+                   "conv_kernel": [5],
+                   "balanced_seg": [False]
+	              }
+	#exp_setting  = {"discriminator_lr": [0.0002, 0.001]}
+
+	for exp in exp_setting.keys():
+		for val in exp_setting[exp]:
+			exp_val = val
+			exp_name = '_'.join(['filterNew', exp, str(exp_val)])
+
+			#change cfg
+			cfg_dict[exp] = exp_val
+			cfg_dict["results_path"] = '/'.join([finetune_result_path, exp_name+'/result'])
+			cfg_dict["log_path"] = finetune_result_path
+			cfg_dict["exp_name"] = exp_name
+		    #construct cfg
+			cfg = easydict.EasyDict(cfg_dict)
+			cfg.load_snapshot = None
+		    
+		    #initialize trainer
+			trainer = Trainer(cfg)
+			print("Finetune Experiments for : {}".format(exp_name))
+			trainer.train()
+			del trainer
+			print("###################################################################\n")
+
+
+
+
+    # trainer = Trainer(cfg)
+    # print("Finishing Initilizing the Trainer")
+    # trainer.train()

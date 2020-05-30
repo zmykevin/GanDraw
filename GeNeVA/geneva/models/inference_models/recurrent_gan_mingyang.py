@@ -48,6 +48,30 @@ LABEL2COLOR = {
             21: {"name": "road", "color": np.array([255, 255, 0])},
         }
 
+LABEL2GAUGANINDEX = {
+    0:156,
+    1:110,
+    2:124,
+    3:135,
+    4:14,
+    5:105,
+    6:119,
+    7:126,
+    8:134,
+    9:147,
+    10:149,
+    11:154,
+    12:158,
+    13:161,
+    14:177,
+    15:96,
+    16:118,
+    17:123,
+    18:162,
+    19:168,
+    20:181,
+    21:148
+}
 class UnNormalize(object):
 
     def __init__(self, mean, std):
@@ -82,24 +106,31 @@ class InferenceRecurrentGAN_Mingyang():
         self.generator = DataParallel(
             GeneratorFactory.create_instance(cfg),
             device_ids=[0]).cuda()
+        
+        self.generator.eval()
 
         self.rnn = nn.DataParallel(
             nn.GRU(cfg.input_dim, cfg.hidden_dim,
                    batch_first=False),
             dim=1,
             device_ids=[0]).cuda()
+        self.rnn.eval()
 
         self.layer_norm = nn.DataParallel(nn.LayerNorm(cfg.hidden_dim),
                                           device_ids=[0]).cuda()
+        self.layer_norm.eval()
 
         self.image_encoder = DataParallel(ImageEncoder(cfg),
                                           device_ids=[0]).cuda()
+        self.image_encoder.eval()
 
         self.condition_encoder = DataParallel(ConditionEncoder(cfg),
                                               device_ids=[0]).cuda()
+        self.condition_encoder.eval()
 
         self.sentence_encoder = nn.DataParallel(SentenceEncoder(cfg),
                                                 device_ids=[0]).cuda()
+        self.sentence_encoder.eval()
 
         self.cfg = cfg
         self.results_path = cfg.results_path
@@ -107,6 +138,7 @@ class InferenceRecurrentGAN_Mingyang():
             os.mkdir(cfg.results_path)
         self.unorm = UnNormalize(mean=(0.5, 0.5, 0.5), std=(
                                  0.5, 0.5, 0.5))
+        #self.reset_drawer()
 
     def predict(self, batch, iteration=0, visualize_batch=0, visualize_progress=False, visualize_images=[], visualizer=None):
         with torch.no_grad():
@@ -114,6 +146,8 @@ class InferenceRecurrentGAN_Mingyang():
             #print("evaluation batch size is: {}".format(batch_size))
             max_seq_len = batch['image'].size(1)
             scene_id = batch['scene_id']
+            #print(scene_id[0])
+
 
             # print(dialog_l)
             # Initial inputs for the RNN set to zeros
@@ -236,6 +270,50 @@ class InferenceRecurrentGAN_Mingyang():
     def _draw_images(self, visualizer, visualize_images, nrow):
         _recurrent_gan.draw_images_gandraw_visualization(
             self, visualizer, visualize_images, nrow)  # Changed by Mingyang Zhou
+    def generate_im(self, current_turns_embedding, current_turns_lengths, batch_size=1):
+        with torch.no_grad():
+            #define batch_size
+            image_feature_map, image_vec, object_detections = self.image_encoder(self.drawer_prev_img)
+
+            turn_embedding = self.sentence_encoder(current_turns_embedding, current_turns_lengths)
+            rnn_condition, _ = self.condition_encoder(turn_embedding,image_vec)
+
+            rnn_condition = rnn_condition.unsqueeze(0)
+            output, hidden = self.rnn(rnn_condition,
+                                      self.drawer_hidden)
+
+            output = output.squeeze(0)
+            output = self.layer_norm(output)
+
+           #print("image feature map size is: {}".format(image_feature_map.shape))
+            generated_image = self._forward_generator(batch_size, output,
+                                                      image_feature_map)
+            #update prev_img
+
+            self.drawer_prev_img = generated_image
+            self.drawer_hidden = hidden
+
+            #Convert generated_image to format can be taken by GanDraw
+            generated_image_raw = generated_image[0].data.cpu()
+            generated_seg_map = np.argmax(generated_image_raw, axis=0)
+            #Convert Seg_Map to the Format that can ba handeled by GanDraw
+            output_img = np.zeros((generated_seg_map.shape[0], generated_seg_map.shape[1]),dtype=np.int32)
+            output_img_colorful = np.zeros((3, generated_seg_map.shape[0], generated_seg_map.shape[1]), dtype=np.uint8)
+            for i in range(generated_seg_map.shape[0]):
+                for j in range(generated_seg_map.shape[1]):
+                    output_img_colorful[:,i,j] = LABEL2COLOR[generated_seg_map[i,j].item()]["color"]
+                    #print(generated_seg_map[i,j].item())
+                    output_img[i,j] = LABEL2GAUGANINDEX[generated_seg_map[i,j].item()]
+            output_img = np.uint8(output_img)
+        return output_img
+
+
+    def reset_drawer(self,background_img,batch_size=1):
+        #reinitialize_drawer
+        self.drawer_prev_img = torch.FloatTensor(background_img).repeat(batch_size, 1, 1, 1) #To repeat the process
+        self.drawer_hidden = torch.zeros(1, batch_size, self.cfg.hidden_dim)
+   
+
 
 
 
@@ -295,10 +373,12 @@ def unormalize_segmentation_onehot(x):
 
 def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=None, target_im=None, iteration=0, image_gen_mode="real"):
     for i, scene in enumerate(scene_id):
+        #check the scene
         if not os.path.exists(os.path.join(results_path, str(scene))):
             os.mkdir(os.path.join(results_path, str(scene)))
         if not os.path.exists(os.path.join(results_path, str(scene) + '_gt')):
             os.mkdir(os.path.join(results_path, str(scene) + '_gt'))
+
         for t in range(len(images)):
             if t >= len(text[i]):
                 continue
@@ -313,7 +393,8 @@ def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=Non
                 image = unormalize_segmentation(images[t][i].data.cpu())
             elif image_gen_mode == "segmentation_onehot":
                 image = unormalize_segmentation_onehot(images[t][i].data.cpu())
-            query = text[i][t]
+            #query = text[i][t]
+            #query = '_'.join(query.split())
             # gt_image = (gt_images[t][i].data.cpu().numpy() + 1) * 128
             # gt_image = gt_image.transpose(1, 2, 0)[..., ::-1]
             if image_gen_mode in ["real", "segmentation"]:
@@ -322,10 +403,13 @@ def _save_predictions(images, text, scene_id, results_path, gt_images, unorm=Non
                 gt_image = np.array(gt_image)[..., ::-1]
             elif image_gen_mode == "segmentation_onehot":
                 gt_image = unormalize_segmentation_onehot(gt_images[t][i].data.cpu())
-
-            cv2.imwrite(os.path.join(results_path, str(scene), '{}_{}_{}.png'.format(t, query, iteration)),image)
-            cv2.imwrite(os.path.join(results_path, str(scene) + '_gt', '{}_{}.png'.format(t, query)),
-                        gt_image)
+            
+            #print(gt_image)
+            #print(os.path.join(results_path, str(scene) + '_gt', '{}_{}.png'.format(t, query)))
+            #cv2.imwrite(os.path.join(results_path, str(scene), '{}_{}_{}.png'.format(t, query, iteration)),image)
+            cv2.imwrite(os.path.join(results_path, str(scene), '{}_{}.png'.format(t, iteration)),image)
+            #cv2.imwrite(os.path.join(results_path, str(scene) + '_gt', '{}_{}.png'.format(t, query)),gt_image)
+            cv2.imwrite(os.path.join(results_path, str(scene) + '_gt', '{}.png'.format(t)), gt_image)
 
             # cv2.imwrite(os.path.join(results_path, str(scene), '{}.png'.format(t)),
             #             image)

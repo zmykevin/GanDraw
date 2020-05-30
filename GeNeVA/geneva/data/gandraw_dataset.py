@@ -114,6 +114,8 @@ class GanDrawDataset(nn.Module):
             self.background = np.expand_dims(self.background, axis=0) #expand the dimension for batch
             self.background = self.process_image(self.background)
 
+        self.unk_embedding = np.load("/home/zmykevin/CoDraw_Gaugan/code/GanDraw/GeNeVA/unk_embedding.npy")
+
     def __len__(self):
         with h5py.File(self.dataset_path, 'r') as f:
             return len(list(f.keys())) - 1
@@ -167,7 +169,7 @@ class GanDrawDataset(nn.Module):
 
         for i, turn in enumerate(turns_tokenized):
             for j, w in enumerate(turn):
-                turns_word_embeddings[i, j] = self.glove[w]
+                turns_word_embeddings[i, j] = self.glove.get(w, self.unk_embedding)
 
         # Process Images
         images = self.process_image(images)

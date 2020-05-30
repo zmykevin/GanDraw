@@ -75,16 +75,7 @@ class Teller_Trainer():
             if cfg.dataset in ['codraw', 'codrawDialog', 'gandraw', "gandraw_clean", "gandraw_64", "gandraw_64_DA"]:
                 self.dataset.shuffle()
             for batch in self.dataloader:
-                if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0:
-                    print("Run Evaluation")
-                    torch.cuda.empty_cache()
-                    #evaluator = TellerEvaluator(self.cfg, self.visualizer, self.logger)
-                    evaluator = Evaluator.factory(self.cfg, self.visualizer,
-                                                  self.logger)
-                    evaluator.evaluate(iteration_counter, self.model)
-                    del evaluator
-
-                iteration_counter += 1
+                #iteration_counter += 1
                 current_batch_start = time.time()
                 self.model.train_batch(batch,
                                        epoch,
@@ -95,9 +86,20 @@ class Teller_Trainer():
                                        current_batch_t=current_batch_time
                                        )
                 current_batch_time = time.time() - current_batch_start
-                #print("batch_time is: {}".format(current_batch_time))
+                print("batch_time is: {}".format(current_batch_time))
+                
+                if iteration_counter >= 0 and iteration_counter % self.cfg.save_rate == 0:
+                    print("Run Evaluation")
+                    torch.cuda.empty_cache()
+                    #evaluator = TellerEvaluator(self.cfg, self.visualizer, self.logger)
+                    evaluator = Evaluator.factory(self.cfg, self.visualizer,
+                                                  self.logger)
+                    evaluator.evaluate(iteration_counter, self.model)
+                    del evaluator
+            
+            
+                iteration_counter += 1
                 #return
-#                 iteration_counter += 1
                 # torch.cuda.empty_cache()
 if __name__ == '__main__':
     config_file = "example_args/gandraw_teller_args.json"

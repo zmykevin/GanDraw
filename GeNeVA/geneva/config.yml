@@ -29,20 +29,20 @@ codrawDialog_inception_objects: '/home/zmykevin/CoDraw_Gaugan/model/GeNeVA/Objec
 iclevr_inception_objects: '/home/zmykevin/CoDraw_Gaugan/model/GeNeVA/Object_Detector_Localizer/iclevr_inception_best_checkpoint.pth'
 
 
-gandraw: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_train.h5'
-gandraw_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_test.h5'
-gandraw_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_hdf5/gandraw_val.h5'
-glove_gandraw_path: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/glove_gandraw.txt'
+gandraw: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_hdf5/gandraw_train.h5'
+gandraw_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_hdf5/gandraw_test.h5'
+gandraw_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_hdf5/gandraw_val.h5'
+glove_gandraw_path: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/glove_gandraw.txt'
 
-gandraw_clean: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_train.h5'
-gandraw_clean_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_test.h5'
-gandraw_clean_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/gandraw_hdf5/gandraw_val.h5'
+gandraw_clean: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_hdf5/gandraw_train.h5'
+gandraw_clean_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_hdf5/gandraw_test.h5'
+gandraw_clean_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_hdf5/gandraw_val.h5'
 #glove_gandraw_clean_path: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_clean/glove_gandraw.txt'
 
-gandraw_64: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_train.h5'
-gandraw_64_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_test.h5'
-gandraw_64_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_hdf5/gandraw_val.h5'
+gandraw_64: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_64_hdf5/gandraw_train.h5'
+gandraw_64_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_64_hdf5/gandraw_test.h5'
+gandraw_64_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full_filtered/gandraw_64_hdf5/gandraw_val.h5'
 
-gandraw_64_DA: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_train.h5'
-gandraw_64_DA_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_test.h5'
-gandraw_64_DA_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_924/gandraw_64_DA_hdf5/gandraw_val.h5'
+gandraw_64_DA: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_64_DA_hdf5/gandraw_train.h5'
+gandraw_64_DA_test: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_64_DA_hdf5/gandraw_test.h5'
+gandraw_64_DA_val: '/home/zmykevin/CoDraw_Gaugan/data/GanDraw/data_full/gandraw_64_DA_hdf5/gandraw_val.h5'

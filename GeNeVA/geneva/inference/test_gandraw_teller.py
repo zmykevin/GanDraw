@@ -84,12 +84,12 @@ class TellerTester():
                                              cfg=cfg,
                                              img_size=cfg.img_size)
         self.dataloader = DataLoader(self.dataset,
-                                     batch_size=1,
+                                     batch_size=cfg.eval_batch_size,
                                      shuffle=False,
                                      num_workers=cfg.num_workers,
                                      drop_last=True)
 
-        self.iterations = len(self.dataset) // cfg.batch_size
+        self.iterations = len(self.dataset) // cfg.eval_batch_size
 
         if cfg.dataset in ['codraw', 'codrawDialog']:
             self.dataloader.collate_fn = codraw_dataset.collate_data
@@ -128,6 +128,7 @@ class TellerTester():
             sampled_conversation = []
             current_gt_conversation = []
             for i, batch in enumerate(self.dataloader):
+                print(i)
                 current_output_dialog = {'dialog':[]}
                 batch_size = len(batch['image'])
                 max_seq_len = batch['image'].size(1)
@@ -141,6 +142,7 @@ class TellerTester():
                 #print(background_img.type())
 
                 teller_val_losses = AverageMeter()
+                enc_state = None
                 for t in range(max_seq_len + 1):
                     current_target_img = batch['target_image'][:, 0]
                     current_target_img_feat = self.model.img_encoder(
@@ -151,8 +153,6 @@ class TellerTester():
                         current_drawer_utterance = batch['drawer_turn_ids'][:,t,:]
                     # print(current_teller_utterance.size())
                     # When compute BLEU, we should exclude the turns when the conversation is already end
-
-                    enc_state = None
                     if t > 0:
                         current_drawer_img = batch['image'][
                             :, t - 1]  # (batch_size, color_channel, )
@@ -163,9 +163,10 @@ class TellerTester():
                             'teller_drawer_turn_ids'][:, t - 1, :]
                         current_teller_drawer_utterance_len = batch[
                             'teller_drawer_id_lengths'][:, t - 1]
-                        #current_dialog_hidden, enc_state = self.model.dialog_encoder(current_teller_drawer_utterance, current_teller_drawer_utterance_len, initial_state = enc_state)
-                        current_dialog_hidden, enc_state = self.model.dialog_encoder(
-                            current_teller_drawer_utterance, current_teller_drawer_utterance_len)
+                        #print(current_teller_drawer_utterance)
+                        #print(current_teller_drawer_utterance_len)
+                        current_dialog_hidden, enc_state = self.model.dialog_encoder(current_teller_drawer_utterance, current_teller_drawer_utterance_len, initial_state = enc_state)
+                        #current_dialog_hidden, enc_state = self.model.dialog_encoder(current_teller_drawer_utterance, current_teller_drawer_utterance_len)
                     else:
                         # If t is equal to 0
                         current_img_feat = torch.zeros(

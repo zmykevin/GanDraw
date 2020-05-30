@@ -147,8 +147,16 @@ class RecurrentGAN_Mingyang():
         
         #Added by Mingyang for segmentation loss 
         if cfg.balanced_seg:
-            label_weights = np.array([3.33621116e-01, 2.60017620e-03, 4.04102299e-04, 2.90346960e-05, 1.42394600e-03, 9.58984050e-02, 3.32219759e-04, 1.49962580e-02, 1.64720764e-01, 4.94427830e-02, 3.02135264e-02, 3.97419444e-02, 
-            2.08731296e-02, 8.37347633e-04, 7.05748956e-02, 4.49577350e-03, 3.50491033e-03, 6.72492854e-02, 3.02388775e-03, 9.59623788e-02, 0.00000000e+00, 5.41150398e-05])
+            label_weights = np.array([3.02674201e-01, 1.91545454e-03, 2.90009221e-04, 7.50949673e-04, 
+                                      1.08670452e-03, 1.11353785e-01, 4.00971053e-04, 1.06240113e-02,
+                                      1.59590824e-01, 5.38960105e-02, 3.36431602e-02, 3.99029734e-02,
+                                      1.88888847e-02, 2.06441476e-03, 6.33775290e-02, 5.81920411e-03,
+                                      3.79528817e-03, 7.87975754e-02, 2.73547355e-03, 1.08308135e-01,
+                                      0.00000000e+00, 8.44408475e-05])
+            #reverse the loss
+            label_weights = 1/label_weights
+            label_weights[20] = 0
+            label_weights = label_weights/np.min(label_weights[:20])
             #convert numpy to tensor
             label_weights = torch.from_numpy(label_weights)
             label_weights = label_weights.type(torch.FloatTensor)
