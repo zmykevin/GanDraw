@@ -29,7 +29,7 @@ class DiscriminatorFactory():
         # if cfg.gan_type == 'recurrent_gan':
         if cfg.gan_type in ['recurrent_gan', 'recurrent_gan_mingyang', 'recurrent_gan_mingyang_img64', 'recurrent_gan_stackGAN']:
             return DiscriminatorAdditiveGANRes(cfg)
-        elif cfg.gan_type in ['recurrent_gan_mingyang_img64_seg']:
+        elif cfg.gan_type in ['recurrent_gan_mingyang_img64_seg','recurrent_gan_drawer']:
             return DiscriminatorAdditiveGANRes_seg(cfg)
 
 
@@ -84,7 +84,7 @@ class DiscriminatorAdditiveGANRes(nn.Module):
         if cfg.disc_sn:
             self.linear = spectral_norm(self.linear)
 
-        if cfg.gan_type in ['recurrent_gan', 'recurrent_gan_mingyang', 'recurrent_gan_mingyang_img64', 'recurrent_gan_stackGAN', 'recurrent_gan_mingyang_img64_seg']:
+        if cfg.gan_type in ['recurrent_gan', 'recurrent_gan_mingyang', 'recurrent_gan_mingyang_img64', 'recurrent_gan_stackGAN', 'recurrent_gan_mingyang_img64_seg', 'recurrent_gan_drawer']:
             condition_dim = cfg.hidden_dim
         elif cfg.gan_type == 'additive_gan':
             condition_dim = cfg.embedding_dim
@@ -207,7 +207,7 @@ class DiscriminatorAdditiveGANRes_seg(nn.Module):
         if cfg.disc_sn:
             self.linear = spectral_norm(self.linear)
 
-        if cfg.gan_type in ['recurrent_gan_mingyang_img64_seg']:
+        if cfg.gan_type in ['recurrent_gan_mingyang_img64_seg','recurrent_gan_drawer']:
             condition_dim = cfg.hidden_dim
         elif cfg.gan_type == 'additive_gan':
             condition_dim = cfg.embedding_dim

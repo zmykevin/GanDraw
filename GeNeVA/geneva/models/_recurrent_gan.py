@@ -34,7 +34,69 @@ def load_model(state, snapshot_path):
         snapshot['sentence_encoder_state_dict'])
     state.sentence_encoder_optimizer.load_state_dict(
         snapshot['sentence_encoder_optimizer_state_dict'])
+    #load the dialog generation part
 
+def load_drawer_model(state, snapshot_path):
+    snapshot = torch.load(snapshot_path)
+    state.generator.load_state_dict(
+        snapshot['generator_state_dict'])
+    state.discriminator.load_state_dict(
+        snapshot['discriminator_state_dict'])
+    state.rnn.load_state_dict(
+        snapshot['rnn_state_dict'])
+    state.layer_norm.load_state_dict(
+        snapshot['layer_norm_state_dict'])
+    state.image_encoder.load_state_dict(
+        snapshot['image_encoder_state_dict'])
+    state.condition_encoder.load_state_dict(
+        snapshot['condition_encoder_state_dict'])
+    state.generator_optimizer.load_state_dict(
+        snapshot['generator_optimizer_state_dict'])
+    state.discriminator_optimizer.load_state_dict(
+        snapshot['discriminator_optimizer_state_dict'])
+    state.rnn_optimizer.load_state_dict(
+        snapshot['rnn_optimizer_state_dict'])
+    state.feature_encoders_optimizer.load_state_dict(
+        snapshot['feature_encoders_optimizer_state_dict'])
+    state.sentence_encoder.load_state_dict(
+        snapshot['sentence_encoder_state_dict'])
+    state.sentence_encoder_optimizer.load_state_dict(
+        snapshot['sentence_encoder_optimizer_state_dict'])
+    #added for dialog generation in Drawer
+    state.drawer_img_encoder.load_state_dict(snapshot['drawer_img_encoder_state_dict'])
+    state.dialog_encoder.load_state_dict(snapshot['dialog_encoder_state_dict'])
+    state.utterance_decoder.load_state_dict(snapshot['utterance_decoder_state_dict'])
+    state.dialog_optimizer.load_state_dict(snapshot['dialog_optimizer_state_dict'])
+
+def save_drawer_model(state, path, epoch, iteration):
+    if not os.path.exists(path):
+        os.mkdir(path)
+
+    snapshot = {
+        'epoch': epoch,
+        'iteration': iteration,
+        'generator_state_dict': state.generator.state_dict(),
+        'discriminator_state_dict': state.discriminator.state_dict(),
+        'rnn_state_dict': state.rnn.state_dict(),
+        'layer_norm_state_dict': state.layer_norm.state_dict(),
+        'image_encoder_state_dict': state.image_encoder.state_dict(),
+        'condition_encoder_state_dict': state.condition_encoder.state_dict(),
+        'generator_optimizer_state_dict': state.generator_optimizer.state_dict(),
+        'discriminator_optimizer_state_dict': state.discriminator_optimizer.state_dict(),
+        'rnn_optimizer_state_dict': state.rnn_optimizer.state_dict(),
+        'feature_encoders_optimizer_state_dict': state.feature_encoders_optimizer.state_dict(),
+        'drawer_img_encoder_state_dict': state.drawer_img_encoder.state_dict(),
+        'dialog_encoder_state_dict': state.dialog_encoder.state_dict(),
+        'utterance_decoder_state_dict': state.utterance_decoder.state_dict(),
+        'dialog_optimizer_state_dict': state.dialog_optimizer.state_dict(),
+        'cfg': state.cfg,
+    }
+
+    snapshot['sentence_encoder_state_dict'] = \
+        state.sentence_encoder.state_dict()
+    snapshot['sentence_encoder_optimizer_state_dict'] = \
+        state.sentence_encoder_optimizer.state_dict()
+    torch.save(snapshot, '{}/snapshot_{}.pth'.format(path, iteration))
 
 def save_model(state, path, epoch, iteration):
     if not os.path.exists(path):

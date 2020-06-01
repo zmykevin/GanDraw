@@ -77,5 +77,6 @@
     "teller_fuse": "concat",
     "image_gen_mode": "real",
     "seed": 42,
-    "eval_batch_size": 1
+    "eval_batch_size": 1,
+    "embedding_load": "default"
 }
