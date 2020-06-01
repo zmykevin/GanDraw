@@ -32,7 +32,7 @@ class GeneratorFactory():
             return GeneratorRecurrentGAN_stackGAN(cfg)
         elif cfg.gan_type == "recurrent_gan_mingyang_img64":  # Edited by Mingyang
             return GeneratorRecurrentGANRes_img64(cfg)
-        elif cfg.gan_type == "recurrent_gan_mingyang_img64_seg": #Edited by Mingyang
+        elif cfg.gan_type in ["recurrent_gan_mingyang_img64_seg", "recurrent_gan_drawer"]: #Edited by Mingyang
             return GeneratorRecurrentGANRes_img64_seg(cfg)
         else:
             raise Exception('Model {} not available. Please select'

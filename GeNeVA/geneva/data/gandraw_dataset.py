@@ -91,6 +91,14 @@ class GanDrawDataset(nn.Module):
         self.gandraw_entities_len = cfg.num_objects
         #define the generation image mode
         self.image_gen_mode = cfg.image_gen_mode
+
+        #Add a new key
+        self.background_real = cv2.imread(cfg.gandraw_background)
+        self.background_real = cv2.cvtColor(self.background_real, cv2.COLOR_BGR2RGB)
+        if img_size < 128:
+            self.background_real = cv2.resize(
+                self.background_real, (img_size, img_size), interpolation=cv2.INTER_AREA)
+        self.background_real = np.expand_dims(self.background_real, axis=0)
         
         if self.image_gen_mode == "real":
             # Preprocess the Raw Back Ground Images
@@ -142,6 +150,7 @@ class GanDrawDataset(nn.Module):
             #print(images.shape)
         #print(images.shape)
         images_semantic = example['images_semantic'].value
+        images_real = example['images'].value
 
         turns = example['utterences'].value
         scene_id = example['scene_id'].value
@@ -163,24 +172,79 @@ class GanDrawDataset(nn.Module):
 #         scene_id = example['scene_id'].value
 
         turns_tokenized = [t.split() for t in turns]
-        lengths = [len(t) for t in turns_tokenized]
+        if self.cfg.embedding_load == "default":
+            lengths = [len(t) for t in turns_tokenized]
+            turns_word_embeddings = np.zeros((len(turns), max(lengths), 300))
 
-        turns_word_embeddings = np.zeros((len(turns), max(lengths), 300))
+            for i, turn in enumerate(turns_tokenized):
+                for j, w in enumerate(turn):
+                    turns_word_embeddings[i, j] = self.glove.get(w, self.unk_embedding)
+        elif self.cfg.embedding_load == "drawer":
+            #re_organize the turn_tokenized
+            new_turns_tokenized = []
+            prev_drawer_utt = []
+            for i, t in enumerate(turns_tokenized):
+                #initialized with prev_drawer_utt
+                new_t = prev_drawer_utt
+                #empty prev_drawer_utt
+                prev_drawer_utt = []
+                for x in t:
+                    if x == "<teller>":
+                        current_role = "teller"
+                        new_t.append(x)
+                    elif x == "<drawer>":
+                        current_role = "drawer"
+                        prev_drawer_utt.append(x)
+                    else:
+                        if current_role == "teller":
+                            new_t.append(x)
+                        else:
+                            prev_drawer_utt.append(x)
+                new_turns_tokenized.append(new_t)
+            #print(new_turns_tokenized)
+            
+            #get corresponding lengths and turns_word_embeddings
+            lengths = [len(t) for t in new_turns_tokenized]
+            turns_word_embeddings = np.zeros((len(new_turns_tokenized), max(lengths), 300))
 
-        for i, turn in enumerate(turns_tokenized):
-            for j, w in enumerate(turn):
-                turns_word_embeddings[i, j] = self.glove.get(w, self.unk_embedding)
+            for i, turn in enumerate(new_turns_tokenized):
+                for j, w in enumerate(turn):
+                    turns_word_embeddings[i, j] = self.glove.get(w, self.unk_embedding)
+
+
 
         # Process Images
         images = self.process_image(images)
 
         # Process Target Images
         target_images = self.process_image(target_images)
+
+        #process real images
+        images_real = self.process_real_image(images_real)
         #######################################################################
 
         ###################Extract the Teller Turn Index and Drawer Turn Index#
-        teller_turn_ids, drawer_turn_ids, teller_drawer_turn_ids = self.separate_drawer_teller(
-            turns_tokenized)
+        if self.cfg.embedding_load == "default":
+            teller_turn_ids, drawer_turn_ids, teller_drawer_turn_ids = self.separate_drawer_teller(turns_tokenized)
+        elif self.cfg.embedding_load == "drawer":
+            teller_turn_ids, drawer_turn_ids, _ = self.separate_drawer_teller(turns_tokenized)
+            teller_drawer_turn_ids = []
+            for i in range(len(drawer_turn_ids)):
+                if i == 0:
+                    teller_id_i = teller_turn_ids[i]
+                    teller_drawer_turn_ids.append(teller_id_i)
+                else:
+                    teller_id_i = teller_turn_ids[i][1:-1]
+                    drawer_id_i = drawer_turn_ids[i-1][1:-1]
+                    # print(drawer_id_i)
+                    # print(teller_id_i)
+                    teller_drawer_turn_ids.append([0]+drawer_id_i+teller_id_i+[1])
+            #print(teller_drawer_turn_ids)
+
+               
+
+
+
         teller_id_lengths = [len(t) for t in teller_turn_ids]
         drawer_id_lengths = [len(t) for t in drawer_turn_ids]
         teller_drawer_id_lengths = [len(t) for t in teller_drawer_turn_ids]
@@ -214,7 +278,9 @@ class GanDrawDataset(nn.Module):
             'teller_drawer_turn_ids': teller_drawer_turn_ids,
             'teller_id_lengths': teller_id_lengths,
             'drawer_id_lengths': drawer_id_lengths,
-            'teller_drawer_id_lengths': teller_drawer_id_lengths
+            'teller_drawer_id_lengths': teller_drawer_id_lengths,
+            'image_real': images_real,
+            'background_real': self.background_real
         }
 
         return sample
@@ -241,6 +307,15 @@ class GanDrawDataset(nn.Module):
 
 
         return result_images
+
+    def process_real_image(self, images):
+        result_images = np.zeros_like(
+            images.transpose(0, 3, 1, 2), dtype=np.float32)
+        for i in range(images.shape[0]):
+            current_img = images[i]
+            current_processed_img = self.image_transform(current_img)
+            current_processed_img = current_processed_img.numpy()
+            result_images[i] = current_processed_img
 
     # def process_seg_image(self, images):
     #     result_images = images[..., ::-1]
@@ -320,6 +395,7 @@ def collate_data(batch):
     longest_turn = max(batch_longest_turns)
 
     stacked_images = np.zeros((batch_size, max_len, c, h, w))
+    stacked_images_real = np.zeros((batch_size, max_len, c, h, w))
     # 300 is the word2vec dimension
     stacked_turns = np.zeros((batch_size, max_len, longest_turn, 300))
     stacked_turn_lengths = np.zeros((batch_size, max_len))
@@ -353,8 +429,10 @@ def collate_data(batch):
     background = None
     for i, b in enumerate(batch):
         img = b['image']
+        img_real = b['image_real'] #added by Mingyang Zhou
         turns = b['turns']
         background = b['background']
+        background_real  = b['background_real']
         turns_word_embedding = b['turns_word_embedding']
         turns_lengths = b['turn_lengths']
 
@@ -373,6 +451,7 @@ def collate_data(batch):
 
         dialog_length = img.shape[0]
         stacked_images[i, :dialog_length] = img
+        stacked_images_real[i, :dialog_length] = img_real #added by mingyang zhou
         stacked_turn_lengths[i, :dialog_length] = np.array(turns_lengths)
         stacked_objects[i, :dialog_length] = b['objects']
         turns_text.append(turns)
@@ -424,7 +503,9 @@ def collate_data(batch):
         'teller_drawer_turn_ids': torch.LongTensor(stacked_teller_drawer_turn_ids),
         'teller_id_lengths': torch.LongTensor(stacked_teller_turn_ids_lengths),
         'drawer_id_lengths': torch.LongTensor(stacked_drawer_turn_ids_lengths),
-        'teller_drawer_id_lengths': torch.LongTensor(stacked_teller_drawer_turn_ids_lengths)
+        'teller_drawer_id_lengths': torch.LongTensor(stacked_teller_drawer_turn_ids_lengths),
+        "image_real": torch.FloatTensor(stacked_images_real),
+        "background_real": torch.FloatTensor(background_real),
     }
 
     return sample

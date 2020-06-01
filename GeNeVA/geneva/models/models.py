@@ -12,6 +12,7 @@ from geneva.models.inference_models.recurrent_gan_mingyang import InferenceRecur
 from geneva.models.teller_mingyang import Teller
 from geneva.models.inference_models.recurrent_gan_teller import InferenceTeller
 from geneva.models.drawer_mingyang import Drawer
+from geneva.models.inference_models.recurrent_gan_drawer import InferenceDrawer
 
 MODELS = {
     'recurrent_gan': RecurrentGAN,
@@ -30,4 +31,5 @@ INFERENCE_MODELS = {
     'recurrent_gan_mingyang_img64_seg': InferenceRecurrentGAN_Mingyang,
     'recurrent_gan_stackGAN': InferenceRecurrentGAN_Mingyang,
     'recurrent_gan_teller': InferenceTeller,
+    'recurrent_gan_drawer': InferenceDrawer,
 }
