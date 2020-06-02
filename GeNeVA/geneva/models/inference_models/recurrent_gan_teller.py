@@ -79,7 +79,7 @@ class InferenceTeller():
             if input_utt is not None:
                 current_dialog_hidden, enc_state = self.dialog_encoder(input_utt, input_utt_len, self.prev_enc_state)
                 #reset prev_enc_state
-                #self.prev_enc_state = enc_state
+                self.prev_enc_state = enc_state
             
             if input_img is not None:
                 current_img_feat = self.img_encoder(input_img)
